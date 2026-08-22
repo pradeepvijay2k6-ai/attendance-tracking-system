@@ -84,7 +84,7 @@ async function syncSessionToGoogleSheet(sessionId) {
       subject_code: session.subjects?.code || 'IDC101',
       class_name: session.classes?.name || 'B.Tech IT - 2025 Batch',
       section_name: sectionName,
-      teacher_name: session.profiles?.full_name || 'Dr. Arige Sumanth',
+      teacher_name: session.profiles?.full_name || 'Faculty Member',
       teacher_email: session.profiles?.email || '',
       total_students: formattedRecords.length || session.total_students,
       present_count: session.present_count,

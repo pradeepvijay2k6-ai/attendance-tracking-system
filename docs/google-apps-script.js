@@ -1,6 +1,6 @@
 /**
  * ==============================================================================
- * SSN IT DEPARTMENT - UNIVERSAL ATTENDANCE SYNC SCRIPT (ENTERPRISE EDITION)
+ * SSN IT DEPARTMENT - UNIVERSAL MULTI-FACULTY ATTENDANCE SYNC SCRIPT
  * ==============================================================================
  */
 
@@ -164,17 +164,17 @@ function doPost(e) {
     const payload = JSON.parse(e.postData.contents);
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    // 1. Record Matrix Attendance (100% Zero-Conflict First Time Write)
+    // 1. Record Matrix Attendance (Dynamic Subject & Faculty Binding)
     recordMatrixAttendance(ss, payload);
 
-    // 2. Record Session Audit Log
+    // 2. Record Session Audit Log with Exact Teacher Name
     recordSessionLog(ss, payload);
 
     SpreadsheetApp.flush();
 
     return ContentService.createTextOutput(JSON.stringify({
       status: 'success',
-      message: 'Attendance successfully recorded in Master Google Sheet'
+      message: 'Attendance successfully recorded for ' + (payload.teacher_name || 'Faculty Member')
     })).setMimeType(ContentService.MimeType.JSON);
 
   } catch (err) {
@@ -188,6 +188,8 @@ function doPost(e) {
 function recordMatrixAttendance(ss, payload) {
   const sectionName = payload.section_name || payload.section || 'IT A';
   const subjectCode = payload.subject_code || 'IDC101';
+  const subjectName = payload.subject_name || 'Introduction to Digital Communications';
+  const facultyName = payload.teacher_name || 'Faculty Member';
   const tabName = sectionName + ' - ' + subjectCode;
 
   const isItB = sectionName.indexOf('IT B') !== -1 || sectionName.indexOf('B') !== -1;
@@ -197,7 +199,7 @@ function recordMatrixAttendance(ss, payload) {
   if (!sheet) {
     sheet = ss.insertSheet(tabName);
 
-    // Header Title: Merged across exactly the 3 frozen columns (A1:C1) to prevent Google Sheets freeze conflict
+    // Header Title: Merged across exactly the 3 frozen columns (A1:C1)
     sheet.getRange('A1:C1').merge()
       .setValue('SSN COLLEGE OF ENGINEERING — IT DEPT')
       .setFontWeight('bold')
@@ -207,7 +209,7 @@ function recordMatrixAttendance(ss, payload) {
       .setHorizontalAlignment('center');
 
     sheet.getRange('A2:C2').merge()
-      .setValue('Course: IDC101 | Section: ' + sectionName + ' | Faculty: Dr. Arige Sumanth')
+      .setValue('Course: ' + subjectCode + ' | ' + sectionName + ' | ' + facultyName)
       .setFontWeight('bold')
       .setFontSize(9)
       .setBackground('#334155')
@@ -231,11 +233,14 @@ function recordMatrixAttendance(ss, payload) {
     sheet.getRange(4, 1, roster.length, 1).setHorizontalAlignment('center').setFontWeight('bold');
     sheet.getRange(4, 2, roster.length, 1).setHorizontalAlignment('center');
 
-    // Freeze exactly 3 rows and 3 columns (Safe with A1:C1 merge!)
+    // Freeze exactly 3 rows and 3 columns
     sheet.setFrozenRows(3);
     sheet.setFrozenColumns(3);
 
     SpreadsheetApp.flush();
+  } else {
+    // Keep banner updated with actual active subject and faculty
+    sheet.getRange('A2:C2').setValue('Course: ' + subjectCode + ' | ' + sectionName + ' | ' + facultyName);
   }
 
   const dateStr = payload.date || payload.attendance_date || Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd');
@@ -349,8 +354,8 @@ function recordSessionLog(ss, payload) {
   const dateStr = payload.date || payload.attendance_date || '';
   const period = payload.period || ('Period ' + (payload.period_number || 1));
   const section = payload.section_name || payload.section || 'IT A';
-  const subject = (payload.subject_name || 'Introduction to Digital Communications') + ' (' + (payload.subject_code || 'IDC101') + ')';
-  const faculty = payload.teacher_name || 'Dr. Arige Sumanth';
+  const subject = (payload.subject_name || 'Subject') + ' (' + (payload.subject_code || 'CODE') + ')';
+  const faculty = payload.teacher_name || 'Faculty Member';
   const total = payload.total_students || 71;
   const present = payload.present_count || 0;
   const absent = payload.absent_count || 0;

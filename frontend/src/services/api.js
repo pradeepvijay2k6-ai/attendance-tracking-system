@@ -183,13 +183,22 @@ export async function getTimetableStudents(timetableId) {
 export async function submitAttendanceApi(payload) {
   const { timetable_id, attendance_date, absent_student_ids = [] } = payload;
   const { data: { user } } = await supabase.auth.getUser();
-  const teacherId = user?.id || 'd1a510a5-eb1b-4a0b-92b6-6ae44ba71155';
+  const teacherId = user?.id;
+
+  const { data: teacherProf } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('id', teacherId)
+    .maybeSingle();
+
+  const teacherName = teacherProf?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Faculty Member';
 
   // 1. Try Backend API first
   try {
     const response = await apiClient.post('/attendance/submit', {
       ...payload,
-      teacher_id: teacherId
+      teacher_id: teacherId,
+      teacher_name: teacherName
     });
     if (response.data?.success) {
       return response.data;
@@ -248,7 +257,7 @@ export async function submitAttendanceApi(payload) {
         subject_code: slot?.subjects?.code || 'IDC101',
         class_name: slot?.classes?.name || 'B.Tech IT - 2025 Batch',
         section_name: sectionName,
-        teacher_name: 'Dr. Arige Sumanth',
+        teacher_name: teacherName,
         total_students: formattedRecords.length || rpcData?.total_students || 71,
         present_count: rpcData?.present_count,
         absent_count: rpcData?.absent_count,
@@ -902,6 +911,14 @@ export async function adminOverrideStudentAttendanceApi({
 
       const absentList = formattedRecords.filter(r => r.status === 'ABSENT');
 
+      const { data: slotTeacher } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', slot.teacher_id)
+        .maybeSingle();
+
+      const teacherName = slotTeacher?.full_name || 'Admin / Faculty';
+
       await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -915,7 +932,7 @@ export async function adminOverrideStudentAttendanceApi({
           subject_code: slot.subjects?.code || 'IDC101',
           class_name: slot.classes?.name || 'B.Tech IT - 2025 Batch',
           section_name: slot.sections?.name || 'IT A',
-          teacher_name: 'Dr. Arige Sumanth',
+          teacher_name: teacherName,
           total_students: formattedRecords.length,
           present_count: formattedRecords.length - absentList.length,
           absent_count: absentList.length,
