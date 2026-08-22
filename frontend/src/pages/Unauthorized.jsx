@@ -3,13 +3,7 @@ import { useAuth } from '../context/useAuth';
 
 export default function Unauthorized() {
   const navigate = useNavigate();
-  const { role, logout } = useAuth();
-
-  const handleGoHome = () => {
-    if (role === 'admin') navigate('/admin');
-    else if (role === 'student') navigate('/student');
-    else navigate('/teacher');
-  };
+  const { logout } = useAuth();
 
   return (
     <div className="auth-container">
@@ -19,9 +13,12 @@ export default function Unauthorized() {
         <p style={{ color: '#718096', marginBottom: '1.5rem', lineHeight: '1.5' }}>
           You do not have the required permissions to access this page.
         </p>
-        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-          <button className="primary-action-btn" onClick={handleGoHome}>
-            Go to Your Dashboard
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button className="primary-action-btn" onClick={() => navigate('/teacher')}>
+            Teacher Portal
+          </button>
+          <button className="secondary-action-btn" onClick={() => navigate('/admin')}>
+            Admin Portal
           </button>
           <button className="secondary-action-btn" onClick={logout}>
             Sign Out
