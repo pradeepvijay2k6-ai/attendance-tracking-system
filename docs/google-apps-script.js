@@ -153,7 +153,7 @@ const ROSTER_IT_B = [
 
 function doPost(e) {
   const lock = LockService.getScriptLock();
-  lock.tryLock(15000);
+  lock.tryLock(20000);
 
   try {
     if (!e || !e.postData || !e.postData.contents) {
@@ -164,15 +164,17 @@ function doPost(e) {
     const payload = JSON.parse(e.postData.contents);
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    // 1. Update Section Register Matrix (e.g., "IT A - IDC101")
+    // 1. Update Matrix Register Tab (Guaranteed Immediate First-Time Write)
     updateAttendanceMatrixTab(ss, payload);
 
-    // 2. Update Master Session Audit Log
+    // 2. Update Session Log Tab
     updateSessionLogTab(ss, payload);
+
+    SpreadsheetApp.flush();
 
     return ContentService.createTextOutput(JSON.stringify({
       status: 'success',
-      message: 'Attendance recorded in Google Sheet successfully'
+      message: 'Attendance recorded on first submission successfully'
     })).setMimeType(ContentService.MimeType.JSON);
 
   } catch (err) {
@@ -188,23 +190,30 @@ function updateAttendanceMatrixTab(ss, payload) {
   const subjectCode = payload.subject_code || 'IDC101';
   const tabName = sectionName + ' - ' + subjectCode;
 
+  const isItB = sectionName.indexOf('IT B') !== -1 || sectionName.indexOf('B') !== -1;
+  const roster = isItB ? ROSTER_IT_B : ROSTER_IT_A;
+  const expectedStudentCount = roster.length; // 71 for IT A, 70 for IT B
+
   let sheet = ss.getSheetByName(tabName);
   if (!sheet) {
-    sheet = createFormattedMatrixSheet(ss, tabName, sectionName, payload);
+    sheet = createFormattedMatrixSheet(ss, tabName, sectionName, payload, roster);
+    SpreadsheetApp.flush();
   }
 
-  // Ensure students exist in rows 4+
-  let lastRow = sheet.getLastRow();
-  if (lastRow < 4) {
-    populateRoster(sheet, sectionName, payload);
-    lastRow = sheet.getLastRow();
+  // Double-check roster exists
+  const currentLastRow = sheet.getLastRow();
+  if (currentLastRow < (expectedStudentCount + 3)) {
+    populateRoster(sheet, roster);
+    SpreadsheetApp.flush();
   }
 
   const dateStr = payload.date || payload.attendance_date || Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd');
   const periodLabel = payload.period || ('Period ' + (payload.period_number || 1));
   const columnHeader = formatDateHeader(dateStr) + '\n' + periodLabel;
 
-  const headers = sheet.getRange(3, 1, 1, Math.max(sheet.getLastColumn(), 5)).getValues()[0];
+  // Find or create date column
+  const lastCol = Math.max(sheet.getLastColumn(), 3);
+  const headers = sheet.getRange(3, 1, 1, Math.max(lastCol, 4)).getValues()[0];
   let dateColIndex = -1;
 
   for (let c = 3; c < headers.length; c++) {
@@ -215,7 +224,7 @@ function updateAttendanceMatrixTab(ss, payload) {
   }
 
   if (dateColIndex === -1) {
-    dateColIndex = sheet.getLastColumn() + 1;
+    dateColIndex = lastCol + 1;
     sheet.getRange(3, dateColIndex).setValue(columnHeader)
       .setFontWeight('bold')
       .setBackground('#1e293b')
@@ -225,62 +234,64 @@ function updateAttendanceMatrixTab(ss, payload) {
     sheet.setColumnWidth(dateColIndex, 95);
   }
 
+  // Parse absentees
   const records = payload.records || [];
   const absentSet = new Set();
   if (payload.absent_students && Array.isArray(payload.absent_students)) {
-    payload.absent_students.forEach(function(s) { absentSet.add(s.roll_no); });
-  }
-
-  if (lastRow >= 4) {
-    const studentData = sheet.getRange(4, 1, lastRow - 3, 2).getValues();
-    const attendanceValues = [];
-    const backgroundColors = [];
-    const fontColors = [];
-
-    for (let r = 0; r < studentData.length; r++) {
-      const rollNo = studentData[r][0].toString().trim();
-      const rec = records.find(function(item) { return item.roll_no.toString().trim() === rollNo; });
-      const isAbsent = absentSet.has(rollNo) || (rec && (rec.status === 'ABSENT' || rec.status === 'absent'));
-
-      if (isAbsent) {
-        attendanceValues.push(['A']);
-        backgroundColors.push(['#fee2e2']);
-        fontColors.push(['#b91c1c']);
-      } else {
-        attendanceValues.push(['P']);
-        backgroundColors.push(['#dcfce7']);
-        fontColors.push(['#15803d']);
-      }
-    }
-
-    const targetRange = sheet.getRange(4, dateColIndex, attendanceValues.length, 1);
-    targetRange.setValues(attendanceValues);
-    targetRange.setBackgrounds(backgroundColors);
-    targetRange.setFontColors(fontColors);
-    targetRange.setFontWeight('bold');
-    targetRange.setHorizontalAlignment('center');
-  }
-}
-
-function populateRoster(sheet, sectionName, payload) {
-  const isItB = sectionName.indexOf('IT B') !== -1 || sectionName.indexOf('B') !== -1;
-  const defaultRoster = isItB ? ROSTER_IT_B : ROSTER_IT_A;
-
-  let studentRows = defaultRoster;
-  if (payload.records && payload.records.length > 0) {
-    studentRows = payload.records.map(function(r) {
-      return [r.roll_no, r.register_no, r.full_name];
+    payload.absent_students.forEach(function(s) {
+      absentSet.add(s.roll_no.toString().trim());
+      absentSet.add(s.roll_no.toString().trim().padStart(3, '0'));
     });
   }
 
-  sheet.getRange(4, 1, studentRows.length, 3).setValues(studentRows);
-  sheet.getRange(4, 1, studentRows.length, 1).setHorizontalAlignment('center').setFontWeight('bold');
-  sheet.getRange(4, 2, studentRows.length, 1).setHorizontalAlignment('center');
+  // Build matrix values for ALL students in roster
+  const attendanceValues = [];
+  const backgroundColors = [];
+  const fontColors = [];
+
+  for (let i = 0; i < roster.length; i++) {
+    const rollNo = roster[i][0].toString().trim();
+    const rollPadded = rollNo.padStart(3, '0');
+
+    const rec = records.find(function(item) {
+      const r = (item.roll_no || '').toString().trim();
+      return r === rollNo || r === rollPadded;
+    });
+
+    const isAbsent = absentSet.has(rollNo) || absentSet.has(rollPadded) || (rec && (rec.status === 'ABSENT' || rec.status === 'absent'));
+
+    if (isAbsent) {
+      attendanceValues.push(['A']);
+      backgroundColors.push(['#fee2e2']); // Red background
+      fontColors.push(['#b91c1c']);       // Dark red text
+    } else {
+      attendanceValues.push(['P']);
+      backgroundColors.push(['#dcfce7']); // Green background
+      fontColors.push(['#15803d']);       // Dark green text
+    }
+  }
+
+  // Apply immediately to the date column
+  const targetRange = sheet.getRange(4, dateColIndex, roster.length, 1);
+  targetRange.setValues(attendanceValues);
+  targetRange.setBackgrounds(backgroundColors);
+  targetRange.setFontColors(fontColors);
+  targetRange.setFontWeight('bold');
+  targetRange.setHorizontalAlignment('center');
+
+  SpreadsheetApp.flush();
 }
 
-function createFormattedMatrixSheet(ss, tabName, sectionName, payload) {
+function populateRoster(sheet, roster) {
+  sheet.getRange(4, 1, roster.length, 3).setValues(roster);
+  sheet.getRange(4, 1, roster.length, 1).setHorizontalAlignment('center').setFontWeight('bold');
+  sheet.getRange(4, 2, roster.length, 1).setHorizontalAlignment('center');
+}
+
+function createFormattedMatrixSheet(ss, tabName, sectionName, payload, roster) {
   const sheet = ss.insertSheet(tabName);
 
+  // Title Banner
   sheet.getRange('A1:F1').merge()
     .setValue('SSN COLLEGE OF ENGINEERING — DEPARTMENT OF INFORMATION TECHNOLOGY')
     .setFontWeight('bold')
@@ -297,6 +308,7 @@ function createFormattedMatrixSheet(ss, tabName, sectionName, payload) {
     .setFontColor('#f8fafc')
     .setHorizontalAlignment('center');
 
+  // Column Headers
   const headerRow = ['Roll No', 'Register Number', 'Student Name'];
   sheet.getRange(3, 1, 1, 3).setValues([headerRow])
     .setFontWeight('bold')
@@ -311,7 +323,7 @@ function createFormattedMatrixSheet(ss, tabName, sectionName, payload) {
   sheet.setFrozenRows(3);
   sheet.setFrozenColumns(3);
 
-  populateRoster(sheet, sectionName, payload);
+  populateRoster(sheet, roster);
 
   return sheet;
 }
