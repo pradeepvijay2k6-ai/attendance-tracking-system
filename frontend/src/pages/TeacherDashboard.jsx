@@ -73,9 +73,10 @@ export default function TeacherDashboard() {
         ]);
 
         const mySlots = (ttData.timetables || []).filter(t => t.teacher_id === user?.id || t.teacher_id === profile?.id);
+        const myToday = (clsData.classes || []).filter(t => t.teacher_id === user?.id || t.teacher_id === profile?.id);
 
-        setTodayClasses(clsData.classes || []);
-        setAllTimetableSlots(mySlots.length > 0 ? mySlots : (clsData.classes || []));
+        setTodayClasses(myToday);
+        setAllTimetableSlots(mySlots);
         setSwapsList(swapsData.swaps || []);
         setExtraClassesList(extraData.extra_classes || []);
         setTeachersList(profData.teachers || []);

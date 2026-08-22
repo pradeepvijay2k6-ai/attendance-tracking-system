@@ -776,7 +776,6 @@ export default function AdminDashboard() {
                         >
                           <option value="teacher">👨‍🏫 Teacher / Faculty</option>
                           <option value="admin">🛡️ Administrator</option>
-                          <option value="student">🎓 Student</option>
                         </select>
                       </td>
                       <td>
@@ -913,7 +912,23 @@ export default function AdminDashboard() {
                     <td><strong>{sub.name}</strong></td>
                     <td>{sub.departments?.name || '—'}</td>
                     <td>Semester {sub.semester}</td>
-                    <td><button className="action-btn delete" onClick={async () => { await deleteSubjectApi(sub.id); loadAllMasterData(); }}>Delete</button></td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          className="action-btn"
+                          style={{ background: '#0284c7', color: '#ffffff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '0.78rem', fontWeight: '600' }}
+                          onClick={() => {
+                            setTimetableForm(prev => ({ ...prev, subject_id: sub.id, teacher_id: teachers[0]?.id || '' }));
+                            setEditingTimetable(null);
+                            setActiveTab('timetable');
+                            setShowTimetableModal(true);
+                          }}
+                        >
+                          + Allot to Teacher
+                        </button>
+                        <button className="action-btn delete" onClick={async () => { await deleteSubjectApi(sub.id); loadAllMasterData(); }}>Delete</button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1118,9 +1133,8 @@ export default function AdminDashboard() {
               <div className="form-group">
                 <label>Role</label>
                 <select value={teacherForm.role} onChange={(e) => setTeacherForm({ ...teacherForm, role: e.target.value })}>
-                  <option value="teacher">Teacher</option>
-                  <option value="admin">Admin / HOD</option>
-                  <option value="student">Student</option>
+                  <option value="teacher">👨‍🏫 Teacher / Faculty</option>
+                  <option value="admin">🛡️ Admin / HOD</option>
                 </select>
               </div>
               <div className="modal-actions">

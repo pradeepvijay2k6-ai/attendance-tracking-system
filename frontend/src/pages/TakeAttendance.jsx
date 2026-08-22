@@ -43,11 +43,12 @@ export default function TakeAttendance() {
         const data = await getTodayTeacherClasses(selectedDate);
         if (!isMounted) return;
 
-        setClasses(data.classes || []);
+        const myClasses = (data.classes || []).filter(c => !c.teacher_id || c.teacher_id === user?.id || c.teacher_id === profile?.id);
+        setClasses(myClasses);
 
         // Auto-select first pending slot if available
-        if (data.classes && data.classes.length > 0) {
-          const firstPending = data.classes.find((c) => !c.is_submitted) || data.classes[0];
+        if (myClasses && myClasses.length > 0) {
+          const firstPending = myClasses.find((c) => !c.is_submitted) || myClasses[0];
           setSelectedSlot(firstPending);
         }
       } catch (err) {
@@ -67,7 +68,7 @@ export default function TakeAttendance() {
     return () => {
       isMounted = false;
     };
-  }, [selectedDate, refreshKey]);
+  }, [selectedDate, refreshKey, user?.id, profile?.id]);
 
   // 2. Fetch students when a slot is selected
   useEffect(() => {
