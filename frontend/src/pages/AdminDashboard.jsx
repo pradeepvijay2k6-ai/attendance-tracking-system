@@ -34,6 +34,11 @@ import {
 
 const dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+const ALLOWED_ADMIN_EMAILS = [
+  'pradeepvijay2k6@gmail.com',
+  'clutchforever999@gmail.com'
+];
+
 export default function AdminDashboard() {
   const { user, profile, logout } = useAuth();
   const navigate = useNavigate();
@@ -370,6 +375,39 @@ export default function AdminDashboard() {
     sessionStorage.removeItem('target_portal');
     logout();
   };
+
+  const userEmail = (user?.email || '').toLowerCase().trim();
+  const isAllowedAdmin = ALLOWED_ADMIN_EMAILS.includes(userEmail);
+
+  // Email Whitelist Restriction Gate
+  if (user && !isAllowedAdmin) {
+    return (
+      <div className="auth-container">
+        <div className="auth-card" style={{ maxWidth: '460px', textAlign: 'center' }}>
+          <div style={{ background: '#fee2e2', color: '#b91c1c', padding: '6px 14px', borderRadius: '20px', display: 'inline-block', fontWeight: '700', fontSize: '0.78rem', marginBottom: '14px' }}>
+            ACCESS RESTRICTED
+          </div>
+          <h2 style={{ fontSize: '1.35rem', color: '#0f172a', marginBottom: '8px', fontWeight: '700' }}>
+            Administrator Access Only
+          </h2>
+          <p style={{ color: '#64748b', fontSize: '0.88rem', marginBottom: '16px', lineHeight: '1.5' }}>
+            Access to this administrative portal is restricted to authorized administrators (<strong>pradeepvijay2k6@gmail.com</strong>, <strong>clutchforever999@gmail.com</strong>).
+          </p>
+          <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '20px', fontSize: '0.84rem', color: '#475569' }}>
+            Currently signed in as: <strong style={{ color: '#0f172a' }}>{userEmail}</strong>
+          </div>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button type="button" className="btn-cancel" style={{ flex: 1 }} onClick={() => navigate('/teacher')}>
+              Teacher Portal
+            </button>
+            <button type="button" className="terminal-btn secondary" style={{ flex: 1 }} onClick={logout}>
+              Sign Out
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Passkey Lock Screen
   if (!isUnlocked) {

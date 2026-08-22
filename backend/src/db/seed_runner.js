@@ -203,31 +203,30 @@ async function seed() {
   if (subErr) console.error('Subject error:', subErr);
   else console.log('✓ Subject: Introduction to Digital Communications');
 
-  // 5. Teacher Profile
-  const { data: profiles } = await supabase.from('profiles').select('id, full_name, email').limit(1);
-  let teacherId = profiles && profiles.length > 0 ? profiles[0].id : '77777777-7777-7777-7777-777777777777';
-
-  // Update profile name to Dr. Arige Sumanth
-  if (profiles && profiles.length > 0) {
-    await supabase.from('profiles').update({ full_name: 'Dr. Arige Sumanth', role: 'teacher', department: 'Information Technology' }).eq('id', teacherId);
-  }
+  // 5. Teacher Profile for Dr. Arige Sumanth
+  const teacherId = '947c656b-84e9-41b4-8ebe-57ee2ffb1e8e';
+  await supabase.from('profiles').upsert({
+    id: teacherId,
+    email: 'arigesumanth@gmail.com',
+    full_name: 'Dr. Arige Sumanth',
+    role: 'teacher',
+    department: 'Information Technology'
+  });
+  console.log('✓ Profile: Dr. Arige Sumanth (arigesumanth@gmail.com)');
 
   // 6. Timetable (6 Periods for Dr. Arige Sumanth)
-  // Clear old timetable
-  await supabase.from('timetables').delete().eq('subject_id', '33333333-cccc-cccc-cccc-cccccccccccc');
-
   const timetableSlots = [
     // IT A: Tue P5, Thu P2, Fri P2
-    { class_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', section_id: '11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa', subject_id: '33333333-cccc-cccc-cccc-cccccccccccc', teacher_id: teacherId, day_of_week: 2, period_number: 5, start_time: '14:00:00', end_time: '15:00:00', room_no: 'IT Hall 201' },
-    { class_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', section_id: '11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa', subject_id: '33333333-cccc-cccc-cccc-cccccccccccc', teacher_id: teacherId, day_of_week: 4, period_number: 2, start_time: '10:00:00', end_time: '11:00:00', room_no: 'IT Hall 201' },
-    { class_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', section_id: '11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa', subject_id: '33333333-cccc-cccc-cccc-cccccccccccc', teacher_id: teacherId, day_of_week: 5, period_number: 2, start_time: '10:00:00', end_time: '11:00:00', room_no: 'IT Hall 201' },
+    { id: '10000000-0000-0000-0000-000000000001', class_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', section_id: '11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa', subject_id: '33333333-cccc-cccc-cccc-cccccccccccc', teacher_id: teacherId, day_of_week: 2, period_number: 5, start_time: '14:00:00', end_time: '15:00:00', room_no: 'IT Hall 201' },
+    { id: '10000000-0000-0000-0000-000000000002', class_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', section_id: '11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa', subject_id: '33333333-cccc-cccc-cccc-cccccccccccc', teacher_id: teacherId, day_of_week: 4, period_number: 2, start_time: '10:00:00', end_time: '11:00:00', room_no: 'IT Hall 201' },
+    { id: '10000000-0000-0000-0000-000000000003', class_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', section_id: '11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa', subject_id: '33333333-cccc-cccc-cccc-cccccccccccc', teacher_id: teacherId, day_of_week: 5, period_number: 2, start_time: '10:00:00', end_time: '11:00:00', room_no: 'IT Hall 201' },
     // IT B: Mon P1, Tue P3, Fri P6
-    { class_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', section_id: '22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb', subject_id: '33333333-cccc-cccc-cccc-cccccccccccc', teacher_id: teacherId, day_of_week: 1, period_number: 1, start_time: '09:00:00', end_time: '10:00:00', room_no: 'IT Hall 202' },
-    { class_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', section_id: '22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb', subject_id: '33333333-cccc-cccc-cccc-cccccccccccc', teacher_id: teacherId, day_of_week: 2, period_number: 3, start_time: '11:30:00', end_time: '12:30:00', room_no: 'IT Hall 202' },
-    { class_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', section_id: '22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb', subject_id: '33333333-cccc-cccc-cccc-cccccccccccc', teacher_id: teacherId, day_of_week: 5, period_number: 6, start_time: '15:00:00', end_time: '16:00:00', room_no: 'IT Hall 202' }
+    { id: '20000000-0000-0000-0000-000000000001', class_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', section_id: '22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb', subject_id: '33333333-cccc-cccc-cccc-cccccccccccc', teacher_id: teacherId, day_of_week: 1, period_number: 1, start_time: '09:00:00', end_time: '10:00:00', room_no: 'IT Hall 202' },
+    { id: '20000000-0000-0000-0000-000000000002', class_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', section_id: '22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb', subject_id: '33333333-cccc-cccc-cccc-cccccccccccc', teacher_id: teacherId, day_of_week: 2, period_number: 3, start_time: '11:30:00', end_time: '12:30:00', room_no: 'IT Hall 202' },
+    { id: '20000000-0000-0000-0000-000000000003', class_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', section_id: '22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb', subject_id: '33333333-cccc-cccc-cccc-cccccccccccc', teacher_id: teacherId, day_of_week: 5, period_number: 6, start_time: '15:00:00', end_time: '16:00:00', room_no: 'IT Hall 202' }
   ];
 
-  const { error: ttErr } = await supabase.from('timetables').insert(timetableSlots);
+  const { error: ttErr } = await supabase.from('timetables').upsert(timetableSlots);
   if (ttErr) console.error('Timetable insert error:', ttErr);
   else console.log('✓ Timetable: 6 periods created for Dr. Arige Sumanth');
 

@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 
+const ALLOWED_ADMIN_EMAILS = [
+  'pradeepvijay2k6@gmail.com',
+  'clutchforever999@gmail.com'
+];
+
 export default function Login() {
   const { loginWithGoogle, user, role, loading: authLoading } = useAuth();
   const [adminPasskey, setAdminPasskey] = useState('');
@@ -16,12 +21,16 @@ export default function Login() {
     if (!authLoading && user) {
       const storedPasskey = sessionStorage.getItem('admin_passcode');
       const targetPortal = sessionStorage.getItem('target_portal');
+      const userEmail = (user.email || '').toLowerCase().trim();
+      const isAllowedAdmin = ALLOWED_ADMIN_EMAILS.includes(userEmail);
 
-      if ((isAdminLogin || targetPortal === 'admin') && storedPasskey === 'IT@123') {
+      if ((isAdminLogin || targetPortal === 'admin') && storedPasskey === 'IT@123' && isAllowedAdmin) {
         navigate('/admin', { replace: true });
       } else if (!isAdminLogin) {
         if (role === 'student') navigate('/student', { replace: true });
         else navigate('/teacher', { replace: true });
+      } else if (isAdminLogin && !isAllowedAdmin) {
+        navigate('/admin', { replace: true });
       }
     }
   }, [user, role, authLoading, navigate, location, isAdminLogin]);
