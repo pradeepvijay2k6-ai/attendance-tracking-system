@@ -1,7 +1,15 @@
 import axios from 'axios';
 import { supabase } from '../config/supabase';
 
-const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5050/api';
+let rawBackendUrl = (import.meta.env.VITE_BACKEND_URL || '').trim();
+if (!rawBackendUrl) {
+  rawBackendUrl = window.location.hostname === 'localhost' ? 'http://localhost:5050/api' : '/api';
+}
+rawBackendUrl = rawBackendUrl.replace(/\/+$/, '');
+if (!rawBackendUrl.endsWith('/api')) {
+  rawBackendUrl = `${rawBackendUrl}/api`;
+}
+const API_BASE_URL = rawBackendUrl;
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
