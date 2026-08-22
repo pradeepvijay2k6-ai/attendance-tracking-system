@@ -157,12 +157,23 @@ export default function TeacherDashboard() {
             <h3 style={{ fontSize: '1.15rem', color: '#0f172a', fontWeight: '700' }}>
               {todayClasses.length > 0 ? "Today's Scheduled Periods" : "Assigned Weekly Periods (6 Periods)"}
             </h3>
-            <button
-              className="primary-action-btn"
-              onClick={() => navigate('/teacher/attendance')}
-            >
-              Take Attendance
-            </button>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <a
+                href="https://docs.google.com/spreadsheets/d/1hr6niV60fj67sidkYEj7ausv6aoGUndR1wcakoVmRjo/edit"
+                target="_blank"
+                rel="noreferrer"
+                className="secondary-action-btn"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none', background: '#059669', color: '#ffffff', border: 'none', padding: '8px 14px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600' }}
+              >
+                📊 Live Google Sheet
+              </a>
+              <button
+                className="primary-action-btn"
+                onClick={() => navigate('/teacher/attendance')}
+              >
+                Take Attendance
+              </button>
+            </div>
           </div>
 
           {loading ? (

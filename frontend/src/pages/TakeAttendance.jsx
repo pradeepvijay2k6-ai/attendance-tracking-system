@@ -187,7 +187,15 @@ export default function TakeAttendance() {
           </button>
           <h2>Mark Period Attendance</h2>
         </div>
-        <div className="nav-right">
+        <div className="nav-right" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <a
+            href="https://docs.google.com/spreadsheets/d/1hr6niV60fj67sidkYEj7ausv6aoGUndR1wcakoVmRjo/edit"
+            target="_blank"
+            rel="noreferrer"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none', background: '#059669', color: '#ffffff', padding: '6px 12px', borderRadius: '6px', fontSize: '0.82rem', fontWeight: '600' }}
+          >
+            📊 View Google Sheet
+          </a>
           <span className="teacher-name">{displayName}</span>
           <button className="logout-btn-sm" onClick={logout}>Sign Out</button>
         </div>
