@@ -11,7 +11,8 @@ import {
   getAdminTeachersApi,
   getAdminClassesApi,
   getAdminSectionsApi,
-  getAdminSubjectsApi
+  getAdminSubjectsApi,
+  getAdminTimetablesApi
 } from '../services/api';
 
 export default function TeacherDashboard() {
@@ -19,6 +20,7 @@ export default function TeacherDashboard() {
   const { user, profile, logout } = useAuth();
 
   const [todayClasses, setTodayClasses] = useState([]);
+  const [allTimetableSlots, setAllTimetableSlots] = useState([]);
   const [swapsList, setSwapsList] = useState([]);
   const [extraClassesList, setExtraClassesList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -50,7 +52,7 @@ export default function TeacherDashboard() {
     description: ''
   });
 
-  const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email || 'Faculty';
+  const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email || 'Dr. Arige Sumanth';
   const displayEmail = user?.email;
   const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url;
 
@@ -58,8 +60,9 @@ export default function TeacherDashboard() {
     async function loadDashboardData() {
       try {
         setLoading(true);
-        const [clsData, swapsData, extraData, profData, cData, sData, subData] = await Promise.all([
+        const [clsData, ttData, swapsData, extraData, profData, cData, sData, subData] = await Promise.all([
           getTodayTeacherClasses().catch(() => ({ classes: [] })),
+          getAdminTimetablesApi().catch(() => ({ timetables: [] })),
           getMySwapsApi().catch(() => ({ swaps: [] })),
           getExtraClassesApi().catch(() => ({ extra_classes: [] })),
           getAdminTeachersApi().catch(() => ({ teachers: [] })),
@@ -69,6 +72,7 @@ export default function TeacherDashboard() {
         ]);
 
         setTodayClasses(clsData.classes || []);
+        setAllTimetableSlots(ttData.timetables || []);
         setSwapsList(swapsData.swaps || []);
         setExtraClassesList(extraData.extra_classes || []);
         setTeachersList(profData.teachers || []);
@@ -120,6 +124,9 @@ export default function TeacherDashboard() {
     }
   };
 
+  const dayNames = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const displayClasses = todayClasses.length > 0 ? todayClasses : allTimetableSlots;
+
   return (
     <div className="dashboard-layout">
       {/* Clean Header Bar */}
@@ -141,13 +148,15 @@ export default function TeacherDashboard() {
       <main className="dashboard-content">
         <div className="welcome-banner">
           <h3>Welcome, {displayName}</h3>
-          <p>Manage course attendance, scheduled periods, substitution requests, and extra classes.</p>
+          <p>Course: <strong>Introduction to Digital Communications (IDC101)</strong> • Department of Information Technology</p>
         </div>
 
         {/* Assigned Periods Section */}
         <section className="dashboard-section" style={{ marginBottom: '28px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h3 style={{ fontSize: '1.15rem', color: '#0f172a', fontWeight: '700' }}>Assigned Periods</h3>
+            <h3 style={{ fontSize: '1.15rem', color: '#0f172a', fontWeight: '700' }}>
+              {todayClasses.length > 0 ? "Today's Scheduled Periods" : "Assigned Weekly Periods (6 Periods)"}
+            </h3>
             <button
               className="primary-action-btn"
               onClick={() => navigate('/teacher/attendance')}
@@ -158,10 +167,10 @@ export default function TeacherDashboard() {
 
           {loading ? (
             <p style={{ color: '#64748b' }}>Loading periods...</p>
-          ) : todayClasses.length === 0 ? (
+          ) : displayClasses.length === 0 ? (
             <div style={{ padding: '20px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
               <p style={{ color: '#64748b', marginBottom: '12px' }}>
-                No periods scheduled for today. You can still record attendance for any weekly period.
+                No periods scheduled. Check with the administrator.
               </p>
               <button className="secondary-action-btn" onClick={() => navigate('/teacher/attendance')}>
                 View Timetable Periods
@@ -169,29 +178,30 @@ export default function TeacherDashboard() {
             </div>
           ) : (
             <div className="grid-cards" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
-              {todayClasses.map((cls) => (
-                <div key={cls.id} className="feature-card" style={{ padding: '18px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <span className="badge role-teacher">Period {cls.period_number}</span>
-                    {cls.is_submitted ? (
-                      <span className="badge role-student">Recorded</span>
-                    ) : (
-                      <span className="badge role-admin">Pending</span>
-                    )}
+              {displayClasses.map((cls) => {
+                const dayLabel = dayNames[cls.day_of_week] || '';
+                return (
+                  <div key={cls.id} className="feature-card" style={{ padding: '18px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <span className="period-badge">{dayLabel ? `${dayLabel} • P${cls.period_number}` : `Period ${cls.period_number}`}</span>
+                      <span className="badge role-teacher">{cls.sections?.name || 'Section'}</span>
+                    </div>
+                    <h4 style={{ fontSize: '1.05rem', margin: '4px 0', fontWeight: '700' }}>
+                      {cls.subjects?.name || 'Introduction to Digital Communications'}
+                    </h4>
+                    <p style={{ fontSize: '0.85rem', margin: '4px 0 14px 0', color: '#64748b' }}>
+                      {cls.classes?.name || 'B.Tech IT - 2025 Batch'} • Room {cls.room_no || 'IT Hall 201'}
+                    </p>
+                    <button
+                      className="primary-action-btn"
+                      style={{ width: '100%' }}
+                      onClick={() => navigate('/teacher/attendance')}
+                    >
+                      Take Attendance
+                    </button>
                   </div>
-                  <h4 style={{ fontSize: '1.05rem', margin: '4px 0', fontWeight: '700' }}>{cls.subjects?.name}</h4>
-                  <p style={{ fontSize: '0.85rem', margin: '4px 0 14px 0', color: '#64748b' }}>
-                    {cls.classes?.name} ({cls.sections?.name}) • Room {cls.room_no}
-                  </p>
-                  <button
-                    className={cls.is_submitted ? "secondary-action-btn" : "primary-action-btn"}
-                    style={{ width: '100%' }}
-                    onClick={() => navigate('/teacher/attendance')}
-                  >
-                    {cls.is_submitted ? 'Update Attendance' : 'Mark Attendance'}
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
