@@ -29,7 +29,8 @@ import {
   deleteTimetableApi,
   getAdminSessionsApi,
   deleteAdminSessionApi,
-  resetSystemDataApi
+  resetSystemDataApi,
+  adminOverrideStudentAttendanceApi
 } from '../services/api';
 
 const dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -106,6 +107,48 @@ export default function AdminDashboard() {
   });
 
   const [showResetModal, setShowResetModal] = useState(false);
+
+  // Student Attendance Override Modal
+  const [showOverrideModal, setShowOverrideModal] = useState(false);
+  const [overrideForm, setOverrideForm] = useState({
+    student_id: '',
+    timetable_id: '',
+    attendance_date: new Date().toISOString().split('T')[0],
+    status: 'present',
+    remarks: 'Admin Attendance Correction'
+  });
+  const [overrideLoading, setOverrideLoading] = useState(false);
+
+  const handleOpenOverrideModal = (student = null) => {
+    setOverrideForm({
+      student_id: student?.id || (students[0]?.id || ''),
+      timetable_id: timetablesList[0]?.id || '',
+      attendance_date: new Date().toISOString().split('T')[0],
+      status: 'present',
+      remarks: 'Admin Attendance Correction'
+    });
+    setShowOverrideModal(true);
+  };
+
+  const handleSaveAttendanceOverride = async (e) => {
+    e.preventDefault();
+    if (!overrideForm.student_id || !overrideForm.timetable_id || !overrideForm.attendance_date) {
+      setFeedback({ type: 'error', message: 'Please select a student, timetable slot, and attendance date.' });
+      return;
+    }
+
+    try {
+      setOverrideLoading(true);
+      const res = await adminOverrideStudentAttendanceApi(overrideForm);
+      setFeedback({ type: 'success', message: res.message || 'Student attendance updated & synced with Google Sheet successfully!' });
+      setShowOverrideModal(false);
+      loadAllMasterData();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err.message || 'Failed to update attendance.' });
+    } finally {
+      setOverrideLoading(false);
+    }
+  };
 
   const handleUnlockAdmin = (e) => {
     e.preventDefault();
@@ -377,9 +420,9 @@ export default function AdminDashboard() {
   };
 
   const userEmail = (user?.email || '').toLowerCase().trim();
-  const isAllowedAdmin = ALLOWED_ADMIN_EMAILS.includes(userEmail);
+  const isAllowedAdmin = ALLOWED_ADMIN_EMAILS.includes(userEmail) || profile?.role === 'admin';
 
-  // Email Whitelist Restriction Gate
+  // Email / Role Restriction Gate
   if (user && !isAllowedAdmin) {
     return (
       <div className="auth-container">
@@ -391,7 +434,7 @@ export default function AdminDashboard() {
             Administrator Access Only
           </h2>
           <p style={{ color: '#64748b', fontSize: '0.88rem', marginBottom: '16px', lineHeight: '1.5' }}>
-            Access to this administrative portal is restricted to authorized administrators (<strong>pradeepvijay2k6@gmail.com</strong>, <strong>clutchforever999@gmail.com</strong>).
+            Access to this administrative portal is restricted to authorized administrators or users granted the Admin role.
           </p>
           <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '20px', fontSize: '0.84rem', color: '#475569' }}>
             Currently signed in as: <strong style={{ color: '#0f172a' }}>{userEmail}</strong>
@@ -545,6 +588,9 @@ export default function AdminDashboard() {
                   <button className="terminal-btn primary" onClick={openAddStudentModal}>
                     + Add Student
                   </button>
+                  <button className="terminal-btn secondary" style={{ background: '#059669', color: '#ffffff' }} onClick={() => handleOpenOverrideModal()}>
+                    ✏️ Update / Override Attendance
+                  </button>
                   <button className="terminal-btn secondary" onClick={openAddTeacherModal}>
                     + Add Faculty
                   </button>
@@ -644,12 +690,21 @@ export default function AdminDashboard() {
                         <td>{s.classes?.name || '—'}</td>
                         <td><span className="badge role-teacher">{s.sections?.name || '—'}</span></td>
                         <td>
-                          <button className="action-btn edit" onClick={() => {
-                            setEditingStudent(s);
-                            setStudentForm({ register_no: s.register_no, roll_no: s.roll_no, full_name: s.full_name, email: s.email, class_id: s.class_id, section_id: s.section_id });
-                            setShowStudentModal(true);
-                          }}>Edit</button>
-                          <button className="action-btn delete" onClick={() => handleDeleteStudent(s.id, s.full_name)}>Delete</button>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button
+                              className="action-btn"
+                              style={{ background: '#059669', color: '#ffffff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '0.78rem', fontWeight: '600' }}
+                              onClick={() => handleOpenOverrideModal(s)}
+                            >
+                              ✏️ Mark Attd
+                            </button>
+                            <button className="action-btn edit" onClick={() => {
+                              setEditingStudent(s);
+                              setStudentForm({ register_no: s.register_no, roll_no: s.roll_no, full_name: s.full_name, email: s.email, class_id: s.class_id, section_id: s.section_id });
+                              setShowStudentModal(true);
+                            }}>Edit</button>
+                            <button className="action-btn delete" onClick={() => handleDeleteStudent(s.id, s.full_name)}>Delete</button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -660,13 +715,18 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* TAB 3: FACULTY */}
+        {/* TAB 3: FACULTY & USER ROLES */}
         {activeTab === 'teachers' && (
           <div className="admin-section-card">
             <div className="section-toolbar">
-              <h2>Faculty Directory</h2>
+              <div>
+                <h2>User Accounts & Role Management</h2>
+                <p style={{ color: '#64748b', fontSize: '0.85rem', marginTop: '2px' }}>
+                  All users who sign in via Google OAuth appear here automatically. You can switch their roles or assign classes instantly.
+                </p>
+              </div>
               <button className="terminal-btn primary" onClick={openAddTeacherModal}>
-                + Add Faculty
+                + Add / Pre-authorize User
               </button>
             </div>
 
@@ -674,33 +734,72 @@ export default function AdminDashboard() {
               <table className="admin-table">
                 <thead>
                   <tr>
-                    <th>Full Name</th>
-                    <th>Email</th>
+                    <th>User / Full Name</th>
+                    <th>Email Address</th>
                     <th>Department</th>
-                    <th>System Role</th>
-                    <th>Phone</th>
+                    <th>Assigned Role</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {teachers.map((t) => (
                     <tr key={t.id}>
-                      <td><strong>{t.full_name || 'Unnamed'}</strong></td>
-                      <td>{t.email}</td>
-                      <td>{t.department || '—'}</td>
                       <td>
-                        <span className={`badge ${t.role === 'admin' ? 'role-admin' : 'role-teacher'}`}>
-                          {(t.role || 'teacher').toUpperCase()}
-                        </span>
+                        <strong>{t.full_name || 'Unnamed User'}</strong>
+                        {t.email === userEmail && <span style={{ marginLeft: '6px', fontSize: '0.72rem', background: '#dcfce7', color: '#15803d', padding: '2px 6px', borderRadius: '4px' }}>YOU</span>}
                       </td>
-                      <td>{t.phone || '—'}</td>
+                      <td><code>{t.email}</code></td>
+                      <td>{t.department || 'Information Technology'}</td>
                       <td>
-                        <button className="action-btn edit" onClick={() => {
-                          setEditingTeacher(t);
-                          setTeacherForm({ full_name: t.full_name || '', email: t.email || '', role: t.role || 'teacher', department: t.department || '', phone: t.phone || '' });
-                          setShowTeacherModal(true);
-                        }}>Edit Role</button>
-                        <button className="action-btn delete" onClick={() => handleDeleteTeacher(t.id, t.full_name || t.email)}>Delete</button>
+                        <select
+                          value={t.role || 'teacher'}
+                          onChange={async (e) => {
+                            const newRole = e.target.value;
+                            try {
+                              await updateTeacherApi(t.id, { role: newRole });
+                              setTeachers(prev => prev.map(item => item.id === t.id ? { ...item, role: newRole } : item));
+                              setFeedback({ type: 'success', message: `Updated ${t.full_name || t.email}'s role to ${newRole.toUpperCase()} successfully!` });
+                            } catch (err) {
+                              setFeedback({ type: 'error', message: `Failed to update role: ${err.message}` });
+                            }
+                          }}
+                          style={{
+                            padding: '6px 10px',
+                            borderRadius: '6px',
+                            fontWeight: '700',
+                            fontSize: '0.82rem',
+                            border: '1px solid #cbd5e1',
+                            cursor: 'pointer',
+                            background: t.role === 'admin' ? '#eff6ff' : '#f0fdf4',
+                            color: t.role === 'admin' ? '#1d4ed8' : '#15803d'
+                          }}
+                        >
+                          <option value="teacher">👨‍🏫 Teacher / Faculty</option>
+                          <option value="admin">🛡️ Administrator</option>
+                          <option value="student">🎓 Student</option>
+                        </select>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            className="action-btn"
+                            style={{ background: '#0284c7', color: '#ffffff', border: 'none', padding: '5px 9px', borderRadius: '4px', fontSize: '0.78rem', fontWeight: '600' }}
+                            onClick={() => {
+                              setTimetableForm(prev => ({ ...prev, teacher_id: t.id }));
+                              setEditingTimetable(null);
+                              setActiveTab('timetable');
+                              setShowTimetableModal(true);
+                            }}
+                          >
+                            + Assign Class
+                          </button>
+                          <button className="action-btn edit" onClick={() => {
+                            setEditingTeacher(t);
+                            setTeacherForm({ full_name: t.full_name || '', email: t.email || '', role: t.role || 'teacher', department: t.department || '', phone: t.phone || '' });
+                            setShowTeacherModal(true);
+                          }}>Edit</button>
+                          <button className="action-btn delete" onClick={() => handleDeleteTeacher(t.id, t.full_name || t.email)}>Delete</button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1233,6 +1332,126 @@ export default function AdminDashboard() {
                 {loading ? 'Resetting...' : 'Confirm Reset'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: OVERRIDE STUDENT ATTENDANCE (ANY DAY, ANY STUDENT) */}
+      {showOverrideModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '520px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a' }}>✏️ Update Student Attendance</h3>
+              <button onClick={() => setShowOverrideModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+            </div>
+            <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '16px' }}>
+              Update attendance for any individual student on any date. Changes sync directly to the Master Google Spreadsheet.
+            </p>
+
+            <form onSubmit={handleSaveAttendanceOverride}>
+              <div className="form-group">
+                <label style={{ fontWeight: '600', fontSize: '0.85rem' }}>Select Student</label>
+                <select
+                  required
+                  value={overrideForm.student_id}
+                  onChange={(e) => setOverrideForm({ ...overrideForm, student_id: e.target.value })}
+                  style={{ padding: '9px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%' }}
+                >
+                  <option value="">-- Choose Student --</option>
+                  {students.map((st) => (
+                    <option key={st.id} value={st.id}>
+                      {st.roll_no} - {st.full_name} ({st.sections?.name || 'IT'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label style={{ fontWeight: '600', fontSize: '0.85rem' }}>Attendance Date</label>
+                <input
+                  required
+                  type="date"
+                  value={overrideForm.attendance_date}
+                  onChange={(e) => setOverrideForm({ ...overrideForm, attendance_date: e.target.value })}
+                  style={{ padding: '9px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%' }}
+                />
+              </div>
+
+              <div className="form-group">
+                <label style={{ fontWeight: '600', fontSize: '0.85rem' }}>Class Period / Subject</label>
+                <select
+                  required
+                  value={overrideForm.timetable_id}
+                  onChange={(e) => setOverrideForm({ ...overrideForm, timetable_id: e.target.value })}
+                  style={{ padding: '9px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%' }}
+                >
+                  <option value="">-- Choose Period & Subject --</option>
+                  {timetablesList.map((tt) => (
+                    <option key={tt.id} value={tt.id}>
+                      Period {tt.period_number} • {tt.subjects?.name || 'IDC101'} ({tt.sections?.name || 'Section'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label style={{ fontWeight: '600', fontSize: '0.85rem' }}>Attendance Status</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setOverrideForm({ ...overrideForm, status: 'present' })}
+                    style={{
+                      padding: '12px',
+                      borderRadius: '8px',
+                      border: overrideForm.status === 'present' ? '2px solid #16a34a' : '1px solid #cbd5e1',
+                      background: overrideForm.status === 'present' ? '#dcfce7' : '#f8fafc',
+                      color: overrideForm.status === 'present' ? '#15803d' : '#475569',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      fontSize: '0.95rem'
+                    }}
+                  >
+                    ✅ PRESENT
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOverrideForm({ ...overrideForm, status: 'absent' })}
+                    style={{
+                      padding: '12px',
+                      borderRadius: '8px',
+                      border: overrideForm.status === 'absent' ? '2px solid #dc2626' : '1px solid #cbd5e1',
+                      background: overrideForm.status === 'absent' ? '#fee2e2' : '#f8fafc',
+                      color: overrideForm.status === 'absent' ? '#b91c1c' : '#475569',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      fontSize: '0.95rem'
+                    }}
+                  >
+                    ❌ ABSENT
+                  </button>
+                </div>
+              </div>
+
+              <div className="form-group" style={{ marginTop: '14px' }}>
+                <label style={{ fontWeight: '600', fontSize: '0.85rem' }}>Reason / Remarks</label>
+                <input
+                  type="text"
+                  value={overrideForm.remarks}
+                  onChange={(e) => setOverrideForm({ ...overrideForm, remarks: e.target.value })}
+                  placeholder="e.g., Medical Certificate, OD Approval, Correction"
+                  style={{ padding: '9px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%' }}
+                />
+              </div>
+
+              <div className="modal-actions" style={{ marginTop: '20px' }}>
+                <button type="button" className="btn-cancel" onClick={() => setShowOverrideModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-confirm" disabled={overrideLoading} style={{ background: '#059669' }}>
+                  {overrideLoading ? 'Updating & Syncing...' : 'Save & Sync Attendance'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

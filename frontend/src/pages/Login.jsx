@@ -22,7 +22,7 @@ export default function Login() {
       const storedPasskey = sessionStorage.getItem('admin_passcode');
       const targetPortal = sessionStorage.getItem('target_portal');
       const userEmail = (user.email || '').toLowerCase().trim();
-      const isAllowedAdmin = ALLOWED_ADMIN_EMAILS.includes(userEmail);
+      const isAllowedAdmin = ALLOWED_ADMIN_EMAILS.includes(userEmail) || role === 'admin';
 
       if ((isAdminLogin || targetPortal === 'admin') && storedPasskey === 'IT@123' && isAllowedAdmin) {
         navigate('/admin', { replace: true });

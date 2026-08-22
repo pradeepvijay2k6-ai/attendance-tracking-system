@@ -749,3 +749,190 @@ export async function scheduleExtraClassApi(data) {
   const response = await apiClient.post('/extra-classes/schedule', data);
   return response.data;
 }
+
+// ==============================================================================
+// ADMIN ON-DEMAND ATTENDANCE OVERRIDE API (ANY STUDENT, ANY DAY, ANY TIME)
+// ==============================================================================
+export async function adminOverrideStudentAttendanceApi({
+  student_id,
+  timetable_id,
+  attendance_date,
+  status, // 'present' or 'absent'
+  remarks = 'Admin Attendance Update'
+}) {
+  try {
+    const formattedDate = new Date(attendance_date).toISOString().split('T')[0];
+    const normalizedStatus = status.toLowerCase();
+
+    // 1. Fetch Timetable slot details
+    const { data: slot, error: slotErr } = await supabase
+      .from('timetables')
+      .select('id, class_id, section_id, subject_id, teacher_id, period_number, sections(name), subjects(name, code), classes(name)')
+      .eq('id', timetable_id)
+      .single();
+
+    if (slotErr || !slot) throw new Error('Selected Timetable slot not found');
+
+    // 2. Fetch Student details
+    const { data: student, error: stdErr } = await supabase
+      .from('students')
+      .select('id, roll_no, register_no, full_name, class_id, section_id')
+      .eq('id', student_id)
+      .single();
+
+    if (stdErr || !student) throw new Error('Student not found');
+
+    // 3. Find or Create Attendance Session for this Date and Timetable Slot
+    let { data: session } = await supabase
+      .from('attendance_sessions')
+      .select('id, present_count, absent_count, total_students')
+      .eq('timetable_id', timetable_id)
+      .eq('attendance_date', formattedDate)
+      .maybeSingle();
+
+    if (!session) {
+      // Create session if it did not exist
+      const { data: allSectionStudents } = await supabase
+        .from('students')
+        .select('id, roll_no, register_no, full_name')
+        .eq('class_id', slot.class_id)
+        .eq('section_id', slot.section_id)
+        .eq('is_active', true);
+
+      const totalStudents = allSectionStudents?.length || 71;
+      const initialPresent = normalizedStatus === 'absent' ? totalStudents - 1 : totalStudents;
+      const initialAbsent = normalizedStatus === 'absent' ? 1 : 0;
+
+      const { data: newSess, error: newSessErr } = await supabase
+        .from('attendance_sessions')
+        .insert([{
+          timetable_id: slot.id,
+          class_id: slot.class_id,
+          section_id: slot.section_id,
+          subject_id: slot.subject_id,
+          teacher_id: slot.teacher_id,
+          attendance_date: formattedDate,
+          period_number: slot.period_number,
+          total_students: totalStudents,
+          present_count: initialPresent,
+          absent_count: initialAbsent,
+          status: 'submitted'
+        }])
+        .select()
+        .single();
+
+      if (newSessErr) throw newSessErr;
+      session = newSess;
+
+      // Populate initial records for all students in section
+      if (allSectionStudents && allSectionStudents.length > 0) {
+        const recordsToInsert = allSectionStudents.map(s => ({
+          attendance_session_id: session.id,
+          student_id: s.id,
+          status: s.id === student_id ? normalizedStatus : 'present',
+          remarks: s.id === student_id ? remarks : null
+        }));
+        await supabase.from('attendance_records').insert(recordsToInsert);
+      }
+    } else {
+      // Session already exists: Upsert record for this student
+      const { data: existingRec } = await supabase
+        .from('attendance_records')
+        .select('id')
+        .eq('attendance_session_id', session.id)
+        .eq('student_id', student_id)
+        .maybeSingle();
+
+      if (existingRec) {
+        await supabase
+          .from('attendance_records')
+          .update({ status: normalizedStatus, remarks: remarks })
+          .eq('id', existingRec.id);
+      } else {
+        await supabase
+          .from('attendance_records')
+          .insert([{
+            attendance_session_id: session.id,
+            student_id: student_id,
+            status: normalizedStatus,
+            remarks: remarks
+          }]);
+      }
+
+      // Recalculate present & absent counts
+      const { data: allRecords } = await supabase
+        .from('attendance_records')
+        .select('status')
+        .eq('attendance_session_id', session.id);
+
+      const presentCount = (allRecords || []).filter(r => r.status.toLowerCase() === 'present').length;
+      const absentCount = (allRecords || []).filter(r => r.status.toLowerCase() === 'absent').length;
+
+      await supabase
+        .from('attendance_sessions')
+        .update({ present_count: presentCount, absent_count: absentCount, updated_at: new Date().toISOString() })
+        .eq('id', session.id);
+    }
+
+    // 4. Sync immediately to Google Sheet Master Webhook
+    try {
+      const webhookUrl = 'https://script.google.com/macros/s/AKfycbzQRkemCd9mFbnicFOs0fOXH931-BxkZj75t5drwy4FoWFlfGPHhEYCnc2pZyrhwXICiw/exec';
+      const { data: allSectionStudents } = await supabase
+        .from('students')
+        .select('id, roll_no, register_no, full_name')
+        .eq('class_id', slot.class_id)
+        .eq('section_id', slot.section_id)
+        .eq('is_active', true)
+        .order('roll_no', { ascending: true });
+
+      const { data: allRecs } = await supabase
+        .from('attendance_records')
+        .select('student_id, status')
+        .eq('attendance_session_id', session.id);
+
+      const recStatusMap = {};
+      (allRecs || []).forEach(r => { recStatusMap[r.student_id] = r.status.toUpperCase(); });
+
+      const formattedRecords = (allSectionStudents || []).map(st => ({
+        roll_no: st.roll_no,
+        register_no: st.register_no,
+        full_name: st.full_name,
+        status: recStatusMap[st.id] || 'PRESENT'
+      }));
+
+      const absentList = formattedRecords.filter(r => r.status === 'ABSENT');
+
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'UPDATE_ATTENDANCE',
+          session_id: session.id,
+          date: formattedDate,
+          period: `Period ${slot.period_number}`,
+          period_number: slot.period_number,
+          subject_name: slot.subjects?.name || 'Introduction to Digital Communications',
+          subject_code: slot.subjects?.code || 'IDC101',
+          class_name: slot.classes?.name || 'B.Tech IT - 2025 Batch',
+          section_name: slot.sections?.name || 'IT A',
+          teacher_name: 'Dr. Arige Sumanth',
+          total_students: formattedRecords.length,
+          present_count: formattedRecords.length - absentList.length,
+          absent_count: absentList.length,
+          records: formattedRecords,
+          absent_students: absentList
+        })
+      });
+    } catch (sheetErr) {
+      console.warn('Google Sheet webhook sync notice:', sheetErr.message);
+    }
+
+    return {
+      success: true,
+      message: `Successfully marked ${student.full_name} (${student.roll_no}) as ${status.toUpperCase()} for ${formattedDate} (Period ${slot.period_number})`
+    };
+  } catch (err) {
+    console.error('Admin attendance override error:', err);
+    throw err;
+  }
+}
