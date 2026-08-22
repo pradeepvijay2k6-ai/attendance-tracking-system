@@ -123,6 +123,11 @@ export default function TakeAttendance() {
     setAbsentStudentIds(new Set());
   };
 
+  const markAllAbsent = () => {
+    const allIds = new Set(students.map(s => s.id));
+    setAbsentStudentIds(allIds);
+  };
+
   // 4. Filter students by search query
   const filteredStudents = useMemo(() => {
     if (!searchQuery.trim()) return students;
@@ -297,22 +302,43 @@ export default function TakeAttendance() {
             </div>
 
             {/* Student Search & Quick Controls */}
-            <div className="controls-bar">
+            <div className="controls-bar" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
               <input
                 type="text"
                 placeholder="🔍 Search student by name or roll number..."
                 className="search-input"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                style={{ flex: '1 1 240px' }}
               />
-              <button
-                type="button"
-                className="btn-mark-all-present"
-                onClick={markAllPresent}
-                disabled={absentCount === 0}
-              >
-                Clear All Absentees (Mark All Present)
-              </button>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn-mark-all-present"
+                  onClick={markAllPresent}
+                  disabled={absentCount === 0}
+                  style={{ padding: '8px 14px', fontSize: '0.85rem' }}
+                >
+                  ✓ Select All Present ({totalCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={markAllAbsent}
+                  disabled={absentCount === totalCount}
+                  style={{
+                    padding: '8px 14px',
+                    fontSize: '0.85rem',
+                    fontWeight: '600',
+                    borderRadius: '8px',
+                    border: '1px solid #fecaca',
+                    background: '#fef2f2',
+                    color: '#dc2626',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ✗ Select All Absent
+                </button>
+              </div>
             </div>
 
             {/* Students Grid */}
