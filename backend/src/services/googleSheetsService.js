@@ -1,7 +1,7 @@
 const supabase = require('../config/supabase');
 
 /**
- * Syncs an attendance session and its student records to the Teacher's Google Sheet
+ * Syncs an attendance session and its student records to the Department Google Sheet
  * @param {string} sessionId UUID of the attendance session
  */
 async function syncSessionToGoogleSheet(sessionId) {
@@ -13,16 +13,17 @@ async function syncSessionToGoogleSheet(sessionId) {
       .from('attendance_sessions')
       .select(`
         id,
+        timetable_id,
         attendance_date,
         period_number,
         total_students,
         present_count,
         absent_count,
         status,
-        classes (name, code),
-        sections (name),
-        subjects (name, code),
-        profiles:teacher_id (full_name, email)
+        classes (id, name, code),
+        sections (id, name),
+        subjects (id, name, code),
+        profiles:conducted_by (full_name, email)
       `)
       .eq('id', sessionId)
       .single();
@@ -31,66 +32,73 @@ async function syncSessionToGoogleSheet(sessionId) {
       throw new Error(`Session ${sessionId} not found: ${sessionErr?.message}`);
     }
 
-    // 2. Fetch all student records for this session
-    const { data: records, error: recordsErr } = await supabase
-      .from('attendance_records')
-      .select(`
-        status,
-        remarks,
-        students (
-          register_no,
-          roll_no,
-          full_name,
-          email
-        )
-      `)
-      .eq('attendance_session_id', sessionId)
-      .order('students(roll_no)', { ascending: true });
-
-    if (recordsErr) {
-      throw new Error(`Failed to load student records: ${recordsErr?.message}`);
+    // 2. Fetch section info if not in join
+    let sectionId = session.sections?.id;
+    let sectionName = session.sections?.name;
+    if (!sectionId && session.timetable_id) {
+      const { data: tt } = await supabase
+        .from('timetables')
+        .select('section_id, sections(name), subjects(name, code), classes(name)')
+        .eq('id', session.timetable_id)
+        .single();
+      sectionId = tt?.section_id;
+      sectionName = tt?.sections?.name;
     }
+    sectionName = sectionName || (sectionId === '22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb' ? 'IT B' : 'IT A');
+    sectionId = sectionId || (sectionName === 'IT B' ? '22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb' : '11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
 
-    // 3. Format the payload for Google Sheets
-    const formattedRecords = (records || []).map((r) => ({
-      roll_no: r.students?.roll_no || '',
-      register_no: r.students?.register_no || '',
-      full_name: r.students?.full_name || '',
-      email: r.students?.email || '',
-      status: (r.status || 'present').toUpperCase()
+    // 3. Fetch all students in the class/section to guarantee 100% complete roster
+    const { data: allStudents } = await supabase
+      .from('students')
+      .select('id, register_no, roll_no, full_name, email')
+      .eq('section_id', sectionId)
+      .eq('is_active', true)
+      .order('roll_no', { ascending: true });
+
+    // 4. Fetch status records for this session
+    const { data: records } = await supabase
+      .from('attendance_records')
+      .select('student_id, status')
+      .eq('attendance_session_id', sessionId);
+
+    const statusMap = {};
+    (records || []).forEach((r) => {
+      statusMap[r.student_id] = (r.status || 'present').toUpperCase();
+    });
+
+    const formattedRecords = (allStudents || []).map((s) => ({
+      roll_no: s.roll_no || '',
+      register_no: s.register_no || '',
+      full_name: s.full_name || '',
+      email: s.email || '',
+      status: statusMap[s.id] || 'PRESENT'
     }));
 
     const sheetPayload = {
       action: 'UPDATE_ATTENDANCE',
       session_id: session.id,
       date: session.attendance_date,
-      period: `Period ${session.period_number}`,
-      period_number: session.period_number,
+      period: `Period ${session.period_number || 1}`,
+      period_number: session.period_number || 1,
       subject_name: session.subjects?.name || 'Introduction to Digital Communications',
       subject_code: session.subjects?.code || 'IDC101',
-      class_name: session.classes?.name || 'B.Tech IT',
-      section_name: session.sections?.name || 'IT A',
+      class_name: session.classes?.name || 'B.Tech IT - 2025 Batch',
+      section_name: sectionName,
       teacher_name: session.profiles?.full_name || 'Dr. Arige Sumanth',
       teacher_email: session.profiles?.email || '',
-      total_students: session.total_students,
+      total_students: formattedRecords.length || session.total_students,
       present_count: session.present_count,
       absent_count: session.absent_count,
       records: formattedRecords,
       timestamp: new Date().toISOString()
     };
 
-    // 4. Send payload to Google Sheets Webhook if configured
+    // 5. Send payload to Google Sheets Webhook
     if (!webhookUrl) {
-      console.log('ℹ️ GOOGLE_SHEET_WEBHOOK_URL is not configured in .env yet. Prepared payload:', {
-        date: sheetPayload.date,
-        period: sheetPayload.period,
-        section: sheetPayload.section_name,
-        present: sheetPayload.present_count,
-        absent: sheetPayload.absent_count
-      });
+      console.log('ℹ️ GOOGLE_SHEET_WEBHOOK_URL is not configured in .env yet.');
       return {
         synced: false,
-        message: 'Google Sheet Webhook URL not configured. Set GOOGLE_SHEET_WEBHOOK_URL in backend/.env',
+        message: 'Google Sheet Webhook URL not configured.',
         payload: sheetPayload
       };
     }
@@ -107,7 +115,7 @@ async function syncSessionToGoogleSheet(sessionId) {
 
     return {
       synced: true,
-      message: 'Successfully updated in teacher Google Sheet',
+      message: 'Successfully updated in Google Sheet',
       response: result
     };
   } catch (error) {

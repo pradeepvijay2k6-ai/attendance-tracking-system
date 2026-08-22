@@ -203,32 +203,47 @@ export async function submitAttendanceApi(payload) {
     // 3. Direct Google Sheets Webhook Sync
     let sheetSynced = false;
     try {
+      // Fetch all students in section for complete roster mapping
       const { data: slot } = await supabase
         .from('timetables')
-        .select('sections(name)')
+        .select('class_id, section_id, sections(name), subjects(name, code), classes(name)')
         .eq('id', timetable_id)
         .single();
 
       const sectionName = slot?.sections?.name || 'IT A';
+      const sectionId = slot?.section_id || (sectionName === 'IT B' ? '22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb' : '11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
 
-      let absentRoster = [];
-      if (absent_student_ids.length > 0) {
-        const { data: absStudents } = await supabase
-          .from('students')
-          .select('roll_no, register_no, full_name')
-          .in('id', absent_student_ids);
-        absentRoster = absStudents || [];
-      }
+      const { data: allSectionStudents } = await supabase
+        .from('students')
+        .select('id, roll_no, register_no, full_name')
+        .eq('section_id', sectionId)
+        .eq('is_active', true)
+        .order('roll_no', { ascending: true });
+
+      const absentSet = new Set(absent_student_ids);
+      const formattedRecords = (allSectionStudents || []).map((s) => ({
+        roll_no: s.roll_no,
+        register_no: s.register_no,
+        full_name: s.full_name,
+        status: absentSet.has(s.id) ? 'ABSENT' : 'PRESENT'
+      }));
 
       const webhookUrl = 'https://script.google.com/macros/s/AKfycbzUTLh2aE3yk-DmjIY5ebMNoDjAR4yp4-pxc5twlAuoGEhmgzJIcSDoMHMVfFT0TKgTuQ/exec';
       const webhookPayload = {
+        action: 'UPDATE_ATTENDANCE',
         session_id: rpcData?.session_id,
-        attendance_date: attendance_date,
-        section: sectionName,
-        total_students: rpcData?.total_students || 71,
+        date: attendance_date,
+        period: `Period ${rpcData?.period_number || 1}`,
+        period_number: rpcData?.period_number || 1,
+        subject_name: slot?.subjects?.name || 'Introduction to Digital Communications',
+        subject_code: slot?.subjects?.code || 'IDC101',
+        class_name: slot?.classes?.name || 'B.Tech IT - 2025 Batch',
+        section_name: sectionName,
+        teacher_name: 'Dr. Arige Sumanth',
+        total_students: formattedRecords.length || rpcData?.total_students || 71,
         present_count: rpcData?.present_count,
         absent_count: rpcData?.absent_count,
-        absent_students: absentRoster
+        records: formattedRecords
       };
 
       await fetch(webhookUrl, {
