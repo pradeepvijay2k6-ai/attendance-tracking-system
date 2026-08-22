@@ -172,52 +172,85 @@ export async function getTimetableStudents(timetableId) {
 }
 
 export async function submitAttendanceApi(payload) {
+  const { timetable_id, attendance_date, absent_student_ids = [] } = payload;
+  const { data: { user } } = await supabase.auth.getUser();
+  const teacherId = user?.id || 'd1a510a5-eb1b-4a0b-92b6-6ae44ba71155';
+
+  // 1. Try Backend API first
   try {
-    const response = await apiClient.post('/attendance/submit', payload);
-    return response.data;
+    const response = await apiClient.post('/attendance/submit', {
+      ...payload,
+      teacher_id: teacherId
+    });
+    if (response.data?.success) {
+      return response.data;
+    }
   } catch (err) {
-    console.warn('Backend attendance submit failed, writing direct to Supabase & Webhook:', err.message);
-    const { timetable_id, attendance_date, absent_student_ids = [] } = payload;
-    const { data: { user } } = await supabase.auth.getUser();
+    console.warn('Backend attendance submit failed, running direct Supabase RPC & Google Sheet sync:', err.message);
+  }
 
-    const { data: students } = await supabase.from('students').select('id, section_id, roll_no').limit(150);
-    const totalStudents = students?.length || 70;
-    const absentCount = absent_student_ids.length;
-    const presentCount = Math.max(0, totalStudents - absentCount);
+  // 2. Direct Supabase RPC Execution
+  try {
+    const { data: rpcData, error: rpcErr } = await supabase.rpc('submit_attendance', {
+      p_timetable_id: timetable_id,
+      p_attendance_date: attendance_date,
+      p_teacher_id: teacherId,
+      p_absent_student_ids: absent_student_ids
+    });
 
-    const { data: session, error } = await supabase
-      .from('attendance_sessions')
-      .upsert({
-        timetable_id,
-        attendance_date,
-        period_number: 1,
-        total_students: totalStudents,
-        present_count: presentCount,
-        absent_count: absentCount,
-        conducted_by: user?.id || '11739a08-65be-47b2-bdce-6f0cd2fff8e7',
-        status: 'submitted'
-      })
-      .select()
-      .single();
+    if (rpcErr) throw rpcErr;
 
-    if (error) throw error;
+    // 3. Direct Google Sheets Webhook Sync
+    let sheetSynced = false;
+    try {
+      const { data: slot } = await supabase
+        .from('timetables')
+        .select('sections(name)')
+        .eq('id', timetable_id)
+        .single();
 
-    // Trigger Google Sheet Webhook if available
-    const webhookUrl = 'https://script.google.com/macros/s/AKfycbzUTLh2aE3yk-DmjIY5ebMNoDjAR4yp4-pxc5twlAuoGEhmgzJIcSDoMHMVfFT0TKgTuQ/exec';
-    fetch(webhookUrl, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        attendance_date,
-        total_students: totalStudents,
-        present_count: presentCount,
-        absent_count: absentCount,
-        absent_student_ids
-      })
-    }).catch((wErr) => console.warn('Webhook trigger notice:', wErr));
+      const sectionName = slot?.sections?.name || 'IT A';
 
-    return { success: true, message: 'Attendance submitted successfully', session };
+      let absentRoster = [];
+      if (absent_student_ids.length > 0) {
+        const { data: absStudents } = await supabase
+          .from('students')
+          .select('roll_no, register_no, full_name')
+          .in('id', absent_student_ids);
+        absentRoster = absStudents || [];
+      }
+
+      const webhookUrl = 'https://script.google.com/macros/s/AKfycbzUTLh2aE3yk-DmjIY5ebMNoDjAR4yp4-pxc5twlAuoGEhmgzJIcSDoMHMVfFT0TKgTuQ/exec';
+      const webhookPayload = {
+        session_id: rpcData?.session_id,
+        attendance_date: attendance_date,
+        section: sectionName,
+        total_students: rpcData?.total_students || 71,
+        present_count: rpcData?.present_count,
+        absent_count: rpcData?.absent_count,
+        absent_students: absentRoster
+      };
+
+      await fetch(webhookUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(webhookPayload)
+      });
+      sheetSynced = true;
+    } catch (sheetErr) {
+      console.warn('Direct Google Sheet sync notice:', sheetErr.message);
+    }
+
+    return {
+      success: true,
+      message: 'Attendance recorded successfully',
+      result: rpcData,
+      google_sheets_sync: { synced: sheetSynced }
+    };
+  } catch (directErr) {
+    console.error('Direct Supabase attendance submit failed:', directErr);
+    throw directErr;
   }
 }
 
