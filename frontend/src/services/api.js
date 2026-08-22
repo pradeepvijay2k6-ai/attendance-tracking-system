@@ -70,8 +70,11 @@ export async function getCurrentUserProfileApi() {
 // TEACHER & ATTENDANCE APIS (with instant resilient Supabase fallback)
 // ==============================================================================
 export async function getTodayTeacherClasses(dateStr) {
+  const { data: { user } } = await supabase.auth.getUser();
+  const teacherId = user?.id;
+
   try {
-    const params = dateStr ? { date: dateStr } : {};
+    const params = { ...(dateStr ? { date: dateStr } : {}), teacher_id: teacherId };
     const response = await apiClient.get('/timetable/teacher/today', { params });
     if (response.data?.classes && response.data.classes.length > 0) {
       return response.data;
@@ -87,7 +90,7 @@ export async function getTodayTeacherClasses(dateStr) {
     dayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
     const formattedDate = targetDate.toISOString().split('T')[0];
 
-    const { data: allSlots, error } = await supabase
+    let query = supabase
       .from('timetables')
       .select(`
         id,
@@ -96,6 +99,7 @@ export async function getTodayTeacherClasses(dateStr) {
         start_time,
         end_time,
         room_no,
+        teacher_id,
         classes (id, name, code),
         sections (id, name),
         subjects (id, name, code)
@@ -103,6 +107,11 @@ export async function getTodayTeacherClasses(dateStr) {
       .order('day_of_week', { ascending: true })
       .order('period_number', { ascending: true });
 
+    if (teacherId) {
+      query = query.eq('teacher_id', teacherId);
+    }
+
+    const { data: allSlots, error } = await query;
     if (error) throw error;
 
     const dayFiltered = (allSlots || []).filter((s) => s.day_of_week === dayOfWeek);

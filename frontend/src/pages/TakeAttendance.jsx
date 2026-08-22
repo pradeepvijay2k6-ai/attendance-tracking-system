@@ -175,7 +175,7 @@ export default function TakeAttendance() {
     }
   };
 
-  const displayName = profile?.full_name || user?.email || 'Teacher';
+  const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Teacher';
 
   return (
     <div className="attendance-page-layout">

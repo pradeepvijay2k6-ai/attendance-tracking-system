@@ -52,12 +52,13 @@ export default function TeacherDashboard() {
     description: ''
   });
 
-  const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email || 'Dr. Arige Sumanth';
+  const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Faculty Member';
   const displayEmail = user?.email;
   const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url;
 
   useEffect(() => {
     async function loadDashboardData() {
+      if (!user) return;
       try {
         setLoading(true);
         const [clsData, ttData, swapsData, extraData, profData, cData, sData, subData] = await Promise.all([
@@ -71,8 +72,10 @@ export default function TeacherDashboard() {
           getAdminSubjectsApi().catch(() => ({ subjects: [] }))
         ]);
 
+        const mySlots = (ttData.timetables || []).filter(t => t.teacher_id === user?.id || t.teacher_id === profile?.id);
+
         setTodayClasses(clsData.classes || []);
-        setAllTimetableSlots(ttData.timetables || []);
+        setAllTimetableSlots(mySlots.length > 0 ? mySlots : (clsData.classes || []));
         setSwapsList(swapsData.swaps || []);
         setExtraClassesList(extraData.extra_classes || []);
         setTeachersList(profData.teachers || []);
@@ -86,7 +89,7 @@ export default function TeacherDashboard() {
       }
     }
     loadDashboardData();
-  }, []);
+  }, [user, profile]);
 
   const handleSendSwap = async (e) => {
     e.preventDefault();
@@ -148,14 +151,14 @@ export default function TeacherDashboard() {
       <main className="dashboard-content">
         <div className="welcome-banner">
           <h3>Welcome, {displayName}</h3>
-          <p>Course: <strong>Introduction to Digital Communications (IDC101)</strong> • Department of Information Technology</p>
+          <p>{profile?.department || 'Department of Information Technology'} • Faculty Portal</p>
         </div>
 
         {/* Assigned Periods Section */}
         <section className="dashboard-section" style={{ marginBottom: '28px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <h3 style={{ fontSize: '1.15rem', color: '#0f172a', fontWeight: '700' }}>
-              {todayClasses.length > 0 ? "Today's Scheduled Periods" : "Assigned Weekly Periods (6 Periods)"}
+              {todayClasses.length > 0 ? "Today's Scheduled Periods" : `Assigned Periods (${displayClasses.length} Periods)`}
             </h3>
             <div style={{ display: 'flex', gap: '10px' }}>
               <a

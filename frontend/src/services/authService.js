@@ -109,8 +109,8 @@ export async function getUserProfile(userId) {
       return profile || { id: userId, full_name: resolvedName, email: userEmail, role: resolvedRole, department: resolvedDept };
     }
 
-    // Link all 6 IDC101 timetable slots to this teacher ID
-    if (isDrSumanth || resolvedRole === 'teacher') {
+    // Link all 6 IDC101 timetable slots ONLY to Dr. Arige Sumanth
+    if (isDrSumanth) {
       await supabase
         .from('timetables')
         .update({ teacher_id: userId })
