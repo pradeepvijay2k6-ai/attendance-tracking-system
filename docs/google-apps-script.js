@@ -188,7 +188,6 @@ function doPost(e) {
 function recordMatrixAttendance(ss, payload) {
   const sectionName = payload.section_name || payload.section || 'IT A';
   const subjectCode = payload.subject_code || 'IDC101';
-  const subjectName = payload.subject_name || 'Introduction to Digital Communications';
   const facultyName = payload.teacher_name || 'Faculty Member';
   const tabName = sectionName + ' - ' + subjectCode;
 
@@ -209,7 +208,7 @@ function recordMatrixAttendance(ss, payload) {
       .setHorizontalAlignment('center');
 
     sheet.getRange('A2:C2').merge()
-      .setValue('Course: ' + subjectCode + ' | ' + sectionName + ' | ' + facultyName)
+      .setValue('Course: ' + subjectCode + ' | Section: ' + sectionName + ' | Faculty: ' + facultyName)
       .setFontWeight('bold')
       .setFontSize(9)
       .setBackground('#334155')
@@ -240,7 +239,7 @@ function recordMatrixAttendance(ss, payload) {
     SpreadsheetApp.flush();
   } else {
     // Keep banner updated with actual active subject and faculty
-    sheet.getRange('A2:C2').setValue('Course: ' + subjectCode + ' | ' + sectionName + ' | ' + facultyName);
+    sheet.getRange('A2:C2').setValue('Course: ' + subjectCode + ' | Section: ' + sectionName + ' | Faculty: ' + facultyName);
   }
 
   const dateStr = payload.date || payload.attendance_date || Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd');
@@ -391,6 +390,28 @@ function recordSessionLog(ss, payload) {
     percentage,
     absentRolls || 'None (100% Present)'
   ]);
+}
+
+/**
+ * Utility Function: Run this function directly inside Apps Script Editor to fix all existing tab banners!
+ */
+function updateAllExistingSheetHeaders() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheets = ss.getSheets();
+
+  for (let i = 0; i < sheets.length; i++) {
+    const sheet = sheets[i];
+    const name = sheet.getName();
+
+    if (name.indexOf('IDC21') !== -1) {
+      const section = name.indexOf('IT B') !== -1 ? 'IT B' : 'IT A';
+      sheet.getRange('A2:C2').setValue('Course: IDC21 | Section: ' + section + ' | Faculty: Kumaresan Kathirvelu');
+    } else if (name.indexOf('IDC101') !== -1) {
+      const section = name.indexOf('IT B') !== -1 ? 'IT B' : 'IT A';
+      sheet.getRange('A2:C2').setValue('Course: IDC101 | Section: ' + section + ' | Faculty: Dr. Arige Sumanth');
+    }
+  }
+  SpreadsheetApp.flush();
 }
 
 function padRoll(numStr) {
