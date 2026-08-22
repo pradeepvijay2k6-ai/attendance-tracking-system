@@ -23,7 +23,7 @@ async function syncSessionToGoogleSheet(sessionId) {
         classes (id, name, code),
         sections (id, name),
         subjects (id, name, code),
-        profiles:conducted_by (full_name, email)
+        profiles:teacher_id (full_name, email)
       `)
       .eq('id', sessionId)
       .single();

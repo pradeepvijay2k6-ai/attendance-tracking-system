@@ -228,7 +228,7 @@ export async function submitAttendanceApi(payload) {
         status: absentSet.has(s.id) ? 'ABSENT' : 'PRESENT'
       }));
 
-      const webhookUrl = 'https://script.google.com/macros/s/AKfycbzUTLh2aE3yk-DmjIY5ebMNoDjAR4yp4-pxc5twlAuoGEhmgzJIcSDoMHMVfFT0TKgTuQ/exec';
+      const webhookUrl = 'https://script.google.com/macros/s/AKfycbzQRkemCd9mFbnicFOs0fOXH931-BxkZj75t5drwy4FoWFlfGPHhEYCnc2pZyrhwXICiw/exec';
       const webhookPayload = {
         action: 'UPDATE_ATTENDANCE',
         session_id: rpcData?.session_id,
