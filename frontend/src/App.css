@@ -1268,18 +1268,76 @@
  * MOBILE & TABLET RESPONSIVE STYLES
  * ============================================================================== */
 @media (max-width: 768px) {
-  /* Admin Header & Nav */
-  .admin-header, .teacher-header, .attendance-nav {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 14px 16px;
+  /* Admin, Faculty & Attendance Header Bars on Mobile */
+  .dashboard-header, .admin-header, .teacher-header, .attendance-nav {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 10px 14px !important;
+    gap: 8px !important;
+    box-sizing: border-box;
+    width: 100%;
   }
 
-  .admin-user-nav, .nav-right {
-    width: 100%;
-    justify-content: space-between;
-    flex-wrap: wrap;
+  .header-left, .nav-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 1;
+    min-width: 0;
+  }
+
+  .header-left h2, .nav-left h2 {
+    font-size: 1.05rem !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .header-right, .admin-user-nav, .nav-right {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin-left: auto;
+    flex-shrink: 0;
+    width: auto !important;
+  }
+
+  .user-avatar {
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  .user-info {
+    max-width: 100px;
+    text-align: right;
+  }
+
+  .user-info strong {
+    font-size: 0.78rem !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+  }
+
+  .user-info small, .nav-right .teacher-name {
+    display: none !important; /* Hide verbose email strings on small screens */
+  }
+
+  .logout-btn, .logout-btn-sm {
+    padding: 6px 10px !important;
+    font-size: 0.78rem !important;
+    font-weight: 700 !important;
+    border-radius: 6px !important;
+    background: #fee2e2 !important;
+    color: #b91c1c !important;
+    border: 1px solid #fecaca !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    cursor: pointer;
   }
 
   /* Admin Tabs Navigation */

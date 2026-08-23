@@ -75,26 +75,31 @@ export async function getUserProfile(userId) {
     const isDrSumanth = userEmail === 'arigesumanth@gmail.com' || userEmail === 'arigesu@ssn.edu.in';
     const isAdminUser = userEmail === 'pradeepvijay2k6@gmail.com' || userEmail === 'clutchforever999@gmail.com';
 
-    // Fetch existing profile
+    // Fetch existing profile by userId
     const { data: profile } = await supabase
       .from('profiles')
       .select('id, full_name, email, role, avatar_url, department')
       .eq('id', userId)
       .maybeSingle();
 
-    const resolvedName = isDrSumanth
-      ? 'Dr. Arige Sumanth'
-      : (profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Faculty Member');
+    // Check if a pre-seeded profile exists for this email
+    const { data: matchedProfile } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, role, department')
+      .ilike('email', userEmail)
+      .maybeSingle();
 
-    const resolvedRole = isAdminUser ? 'admin' : (profile?.role || 'teacher');
-    const resolvedDept = profile?.department || 'Information Technology';
+    const preSeededId = matchedProfile?.id;
+    const resolvedName = matchedProfile?.full_name || profile?.full_name || user?.user_metadata?.full_name || userEmail.split('@')[0];
+    const resolvedRole = isAdminUser ? 'admin' : (matchedProfile?.role || profile?.role || 'teacher');
+    const resolvedDept = matchedProfile?.department || profile?.department || 'Information Technology';
 
-    // Upsert to ensure profile is synced
+    // Upsert to ensure profile is synced to this authenticated userId
     const { data: updatedProfile, error: upsertErr } = await supabase
       .from('profiles')
       .upsert({
         id: userId,
-        email: userEmail || profile?.email || 'faculty@ssn.edu.in',
+        email: userEmail,
         full_name: resolvedName,
         role: resolvedRole,
         department: resolvedDept,
@@ -106,18 +111,33 @@ export async function getUserProfile(userId) {
 
     if (upsertErr) {
       console.warn('Profile upsert warning:', upsertErr.message);
-      return profile || { id: userId, full_name: resolvedName, email: userEmail, role: resolvedRole, department: resolvedDept };
     }
 
-    // Link all 6 IDC101 timetable slots ONLY to Dr. Arige Sumanth
-    if (isDrSumanth) {
+    // Link any timetables assigned to the pre-seeded profile ID to the authenticated user ID
+    if (preSeededId && preSeededId !== userId) {
       await supabase
         .from('timetables')
         .update({ teacher_id: userId })
-        .eq('subject_id', '33333333-cccc-cccc-cccc-cccccccccccc');
+        .eq('teacher_id', preSeededId);
     }
 
-    return updatedProfile;
+    // Also link Dr. Arige Sumanth if logging in from gmail alias
+    if (isDrSumanth) {
+      const { data: sumanthProf } = await supabase
+        .from('profiles')
+        .select('id')
+        .ilike('email', 'ariges@ssn.edu.in')
+        .maybeSingle();
+
+      if (sumanthProf?.id && sumanthProf.id !== userId) {
+        await supabase
+          .from('timetables')
+          .update({ teacher_id: userId })
+          .eq('teacher_id', sumanthProf.id);
+      }
+    }
+
+    return updatedProfile || { id: userId, full_name: resolvedName, email: userEmail, role: resolvedRole, department: resolvedDept };
   } catch (err) {
     console.error('Error in getUserProfile:', err);
     return null;
