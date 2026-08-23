@@ -152,8 +152,8 @@ const TEACHERS = [
   { id: 't2', name: 'Dr. V. Sivamurugan', code: 'VS', email: 'sivamuruganv@ssn.edu.in', dept: 'Information Technology', subjects: ['UIT3363 - Digital Systems and Microprocessors Design Theory'] },
   { id: 't3', name: 'Dr. S. I. Davis Presley', code: 'SDP', email: 'davispresleysi@ssn.edu.in', dept: 'Information Technology', subjects: ['UHS3386 - Universal Human Values 2: Understanding Harmony'] },
   { id: 't4', name: 'Dr. P. Jaish', code: 'PJ', email: 'jaishp@ssn.edu.in', dept: 'Mathematics', subjects: ['UMA3353 - Mathematical Foundations for Computing Technology (IT B)'] },
-  { id: 't5', name: 'Dr. M. Mohamed Iqbal', code: 'MMI', email: 'mohamediqbalm@ssn.edu.in', dept: 'Information Technology', subjects: ['UIT3361 - Java (IT B)', 'UIT3311 - DB Lab (IT A)', 'UITV303 - Skill Dev (IT A)', 'UIT3362 - Software Eng (IT A)'] },
-  { id: 't6', name: 'Dr. N. Kalaichelvi', code: 'NK', email: 'kalaichelvin@ssn.edu.in', dept: 'Information Technology', subjects: ['UIT3301 - Database Technology (IT A & IT B)', 'UIT3311 - DB Lab (IT B)', 'UITV303 - Skill Dev (IT B)'] },
+  { id: 't5', name: 'Dr. M. Mohamed Iqbal', code: 'MMI', email: 'mohamediqbalm@ssn.edu.in', dept: 'Information Technology', subjects: ['UIT3361 - Java (IT B)', 'UIT3311 - DB Lab (IT A)', 'UIT3362 - Software Eng (IT A)'] },
+  { id: 't6', name: 'Dr. N. Kalaichelvi', code: 'NK', email: 'kalaichelvin@ssn.edu.in', dept: 'Information Technology', subjects: ['UIT3301 - Database Technology (IT A & IT B)', 'UIT3311 - DB Lab (IT B)'] },
   { id: 't7', name: 'Dr. G. Sornavalli', code: 'GS', email: 'sornavallig@ssn.edu.in', dept: 'Information Technology', subjects: ['UIT3362 - Principles of Software Engineering and Practices (IT B)'] },
   { id: 't8', name: 'Dr. H. Sabireen', code: 'HS', email: 'sabireenh@ssn.edu.in', dept: 'Information Technology', subjects: ['UIT3361 - Object-Oriented Programming Using Java (IT A)'] },
   { id: 't9', name: 'Dr. S. Vanitha', code: 'SV', email: 'vanithas@ssn.edu.in', dept: 'Mathematics', subjects: ['UMA3353 - Mathematical Foundations for Computing Technology (IT A)'] }
@@ -167,7 +167,6 @@ const SUBJECTS = [
   { code: 'UIT3361', name: 'Object-Oriented Programming Using Java', dept: 'IT', sem: 3 },
   { code: 'UIT3301', name: 'Database Technology', dept: 'IT', sem: 3 },
   { code: 'UIT3311', name: 'Database Technology Laboratory', dept: 'IT', sem: 3 },
-  { code: 'UITV303', name: 'Skill Development Software - 1', dept: 'IT', sem: 3 },
   { code: 'UIT3362', name: 'Principles of Software Engineering and Practices', dept: 'IT', sem: 3 }
 ];
 
@@ -183,7 +182,6 @@ const TIMETABLE = [
   { id: 'ita_8', section: 'IT A', venue: 'EH 5', day: 2, dayName: 'Tue', p: 5, time: '12:20 - 13:05', subCode: 'UIT3302', subName: 'Introduction to Digital Communication', teacherId: 't1', teacherName: 'Dr. Arige Sumanth' },
   { id: 'ita_9', section: 'IT A', venue: 'EH 5', day: 2, dayName: 'Tue', p: 6, time: '13:05 - 13:50', subCode: 'UHS3386', subName: 'Universal Human Values 2: Understanding Harmony', teacherId: 't3', teacherName: 'Dr. S. I. Davis Presley' },
   { id: 'ita_10', section: 'IT A', venue: 'EH 5', day: 2, dayName: 'Tue', p: 7, time: '14:10 - 14:55', subCode: 'UHS3386', subName: 'Universal Human Values 2: Understanding Harmony', teacherId: 't3', teacherName: 'Dr. S. I. Davis Presley' },
-  { id: 'ita_11', section: 'IT A', venue: 'EH 5', day: 3, dayName: 'Wed', p: 7, time: '14:10 - 14:55', subCode: 'UITV303', subName: 'Skill Development Software - 1', teacherId: 't5', teacherName: 'Dr. M. Mohamed Iqbal' },
   { id: 'ita_12', section: 'IT A', venue: 'EH 5', day: 3, dayName: 'Wed', p: 8, time: '14:55 - 15:40', subCode: 'UMA3353', subName: 'Mathematical Foundations for Computing Technology', teacherId: 't9', teacherName: 'Dr. S. Vanitha' },
   { id: 'ita_13', section: 'IT A', venue: 'EH 5', day: 4, dayName: 'Thu', p: 1, time: '08:00 - 08:45', subCode: 'UIT3362', subName: 'Principles of Software Engineering and Practices', teacherId: 't5', teacherName: 'Dr. M. Mohamed Iqbal' },
   { id: 'ita_14', section: 'IT A', venue: 'EH 5', day: 4, dayName: 'Thu', p: 2, time: '08:45 - 09:30', subCode: 'UIT3302', subName: 'Introduction to Digital Communication', teacherId: 't1', teacherName: 'Dr. Arige Sumanth' },
@@ -209,7 +207,6 @@ const TIMETABLE = [
   { id: 'itb_10', section: 'IT B', venue: 'EH 6', day: 2, dayName: 'Tue', p: 5, time: '12:20 - 13:05', subCode: 'UIT3363', subName: 'Digital Systems and Microprocessors Design', teacherId: 't2', teacherName: 'Dr. V. Sivamurugan' },
   { id: 'itb_11', section: 'IT B', venue: 'EH 6', day: 3, dayName: 'Wed', p: 1, time: '08:00 - 08:45', subCode: 'UMA3353', subName: 'Mathematical Foundations for Computing Technology', teacherId: 't4', teacherName: 'Dr. P. Jaish' },
   { id: 'itb_12', section: 'IT B', venue: 'EH 6', day: 3, dayName: 'Wed', p: 2, time: '08:45 - 09:30', subCode: 'UIT3301', subName: 'Database Technology', teacherId: 't6', teacherName: 'Dr. N. Kalaichelvi' },
-  { id: 'itb_13', section: 'IT B', venue: 'EH 6', day: 3, dayName: 'Wed', p: 5, time: '12:20 - 13:05', subCode: 'UITV303', subName: 'Skill Development Software - 1', teacherId: 't6', teacherName: 'Dr. N. Kalaichelvi' },
   { id: 'itb_14', section: 'IT B', venue: 'EH 6', day: 4, dayName: 'Thu', p: 1, time: '08:00 - 08:45', subCode: 'UIT3301', subName: 'Database Technology', teacherId: 't6', teacherName: 'Dr. N. Kalaichelvi' },
   { id: 'itb_15', section: 'IT B', venue: 'EH 6', day: 4, dayName: 'Thu', p: 2, time: '08:45 - 09:30', subCode: 'UIT3361', subName: 'Object-Oriented Programming Using Java', teacherId: 't5', teacherName: 'Dr. M. Mohamed Iqbal' },
   { id: 'itb_16', section: 'IT B', venue: 'EH 6', day: 4, dayName: 'Thu', p: 5, time: '12:20 - 13:05', subCode: 'UIT3362', subName: 'Principles of Software Engineering and Practices', teacherId: 't7', teacherName: 'Dr. G. Sornavalli' },
