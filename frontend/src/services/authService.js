@@ -121,19 +121,14 @@ export async function getUserProfile(userId) {
         .eq('teacher_id', preSeededId);
     }
 
-    // Also link Dr. Arige Sumanth if logging in from gmail alias
+    // Also link Dr. Arige Sumanth if logging in from either arigesumanth@gmail.com or ariges@ssn.edu.in
     if (isDrSumanth) {
-      const { data: sumanthProf } = await supabase
-        .from('profiles')
-        .select('id')
-        .ilike('email', 'ariges@ssn.edu.in')
-        .maybeSingle();
-
-      if (sumanthProf?.id && sumanthProf.id !== userId) {
+      const { data: sub } = await supabase.from('subjects').select('id').eq('code', 'UIT3302').maybeSingle();
+      if (sub) {
         await supabase
           .from('timetables')
           .update({ teacher_id: userId })
-          .eq('teacher_id', sumanthProf.id);
+          .eq('subject_id', sub.id);
       }
     }
 
