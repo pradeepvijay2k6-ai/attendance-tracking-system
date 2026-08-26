@@ -28,10 +28,34 @@ export function detectUserOS() {
 export default function DownloadAppModal({ isOpen, onClose }) {
   const [detectedOS, setDetectedOS] = useState({ name: 'Detecting...', file: '#' });
   const [downloadSuccess, setDownloadSuccess] = useState('');
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [showAndroidGuide, setShowAndroidGuide] = useState(false);
 
   useEffect(() => {
     setDetectedOS(detectUserOS());
+
+    const handlePrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handlePrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handlePrompt);
   }, []);
+
+  const handleAndroidInstall = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDownloadSuccess('✓ SSN Attendance installed successfully on your Android device!');
+        setTimeout(() => setDownloadSuccess(''), 6000);
+      }
+      setDeferredPrompt(null);
+    } else {
+      setShowAndroidGuide(true);
+    }
+  };
 
   const triggerDownload = (filePath, osName) => {
     if (!filePath) return;
@@ -162,6 +186,40 @@ export default function DownloadAppModal({ isOpen, onClose }) {
                 On iPhone & iPad, tap the Safari <strong>Share</strong> button (⎋) and select <strong>"Add to Home Screen"</strong> (⊞) for instant installation.
               </p>
             </div>
+          ) : detectedOS.name === 'Android' ? (
+            <div>
+              <button
+                onClick={handleAndroidInstall}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #059669, #10b981)',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontWeight: '800',
+                  fontSize: '0.95rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(16,185,129,0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  marginBottom: '10px'
+                }}
+              >
+                <span>🤖</span> 1-Tap Install App on Android
+              </button>
+
+              {showAndroidGuide && (
+                <div style={{ background: '#0f172a', padding: '14px', borderRadius: '10px', fontSize: '0.82rem', color: '#cbd5e1', lineHeight: '1.6' }}>
+                  <div style={{ fontWeight: '700', color: '#38bdf8', marginBottom: '6px' }}>Direct Installation via Chrome:</div>
+                  <div>1. Tap the <strong>three dots</strong> menu (⋮) at top right in Chrome.</div>
+                  <div>2. Tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.</div>
+                  <div style={{ color: '#34d399', marginTop: '6px' }}>✓ Installs instantly with official app icon and offline support!</div>
+                </div>
+              )}
+            </div>
           ) : (
             <button
               onClick={() => triggerDownload(detectedOS.file, detectedOS.name)}
@@ -239,9 +297,9 @@ export default function DownloadAppModal({ isOpen, onClose }) {
             </div>
           </button>
 
-          {/* Android APK */}
+          {/* Android Direct Install */}
           <button
-            onClick={() => triggerDownload('/downloads/SSN-Attendance.apk', 'Android APK')}
+            onClick={handleAndroidInstall}
             style={{
               background: '#0f172a',
               border: '1px solid #334155',
@@ -258,7 +316,7 @@ export default function DownloadAppModal({ isOpen, onClose }) {
             <span style={{ fontSize: '1.4rem' }}>🤖</span>
             <div>
               <div style={{ fontWeight: '700', fontSize: '0.88rem' }}>Android App</div>
-              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>.apk package</div>
+              <div style={{ fontSize: '0.72rem', color: '#34d399' }}>1-Tap Install</div>
             </div>
           </button>
 
