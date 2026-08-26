@@ -288,6 +288,11 @@ function recordMatrixAttendance(ss, payload) {
  * Setup brand new Matrix Sheet with frozen summary columns
  */
 function setupMatrixSheetStructure(sheet, sectionName, subjectCode, facultyName, roster) {
+  try {
+    sheet.getRange('A1:C1').breakApart();
+    sheet.getRange('A2:C2').breakApart();
+  } catch (e) {}
+
   // Header Title: Merged across frozen columns (A1:F1)
   sheet.getRange('A1:F1').merge()
     .setValue('SSN COLLEGE OF ENGINEERING — IT DEPT')
@@ -334,9 +339,6 @@ function setupMatrixSheetStructure(sheet, sectionName, subjectCode, facultyName,
   const formulas = [];
   for (let i = 0; i < roster.length; i++) {
     const rowNum = i + 4;
-    // Col D (Present): =COUNTIF(G4:4, "P")
-    // Col E (Total):   =COUNTIF(G4:4, "P") + COUNTIF(G4:4, "A")
-    // Col F (%):       =IF(E4>0, D4/E4, 1)
     formulas.push([
       '=COUNTIF(G' + rowNum + ':' + rowNum + ', "P")',
       '=COUNTIF(G' + rowNum + ':' + rowNum + ', "P") + COUNTIF(G' + rowNum + ':' + rowNum + ', "A")',
@@ -366,7 +368,26 @@ function setupMatrixSheetStructure(sheet, sectionName, subjectCode, facultyName,
  * Ensures existing sheets have Attendance % columns (D, E, F) and updated banner
  */
 function ensureSummaryColumns(sheet, sectionName, subjectCode, facultyName, roster) {
-  sheet.getRange('A2:F2').setValue('Course: ' + subjectCode + ' | Section: ' + sectionName + ' | Faculty: ' + facultyName);
+  try {
+    sheet.getRange('A1:C1').breakApart();
+    sheet.getRange('A2:C2').breakApart();
+  } catch (e) {}
+
+  sheet.getRange('A1:F1').merge()
+    .setValue('SSN COLLEGE OF ENGINEERING — IT DEPT')
+    .setFontWeight('bold')
+    .setFontSize(11)
+    .setBackground('#0f172a')
+    .setFontColor('#ffffff')
+    .setHorizontalAlignment('center');
+
+  sheet.getRange('A2:F2').merge()
+    .setValue('Course: ' + subjectCode + ' | Section: ' + sectionName + ' | Faculty: ' + facultyName)
+    .setFontWeight('bold')
+    .setFontSize(9)
+    .setBackground('#334155')
+    .setFontColor('#f8fafc')
+    .setHorizontalAlignment('center');
 
   const col4Header = sheet.getRange(3, 4).getValue();
   if (col4Header !== 'Present' || sheet.getRange(3, 6).getValue() !== 'Attendance %') {
