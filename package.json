@@ -10,7 +10,8 @@
     "desktop": "npm run build && cd desktop && npm start",
     "desktop:dev": "cd desktop && npm run dev",
     "desktop:pack": "npm run build && cd desktop && npm run build",
-    "mobile:build": "cd frontend && npm run build"
+    "mobile:build": "cd frontend && npm run build && npx cap sync android",
+    "android": "cd frontend && npx cap open android"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
