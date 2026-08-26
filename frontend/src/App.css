@@ -1676,3 +1676,210 @@
     padding: 7px 8px;
   }
 }
+
+/* =========================================
+   App Download Header Button (desktop base)
+   ========================================= */
+.app-download-header-btn {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #38bdf8;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.app-download-header-btn:hover {
+  background: #0f172a;
+}
+
+/* =========================================
+   Periods Section Toolbar (desktop base)
+   ========================================= */
+.periods-section-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.periods-section-title {
+  font-size: 1.15rem;
+  color: #0f172a;
+  font-weight: 700;
+  margin: 0;
+  flex-shrink: 1;
+}
+
+.periods-action-buttons {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Sheet link button */
+.sheet-link-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  background: #059669;
+  color: #ffffff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.sheet-link-btn:hover {
+  background: #047857;
+}
+
+/* =========================================
+   ANDROID / MOBILE ADAPTIVE LAYOUT
+   Targets phones 430px and below
+   ========================================= */
+@media (max-width: 430px) {
+
+  /* --- Header: tighter, no text overflow --- */
+  .dashboard-header {
+    padding: 8px 12px !important;
+    gap: 6px !important;
+  }
+
+  /* Hide the department badge in header on very small screens */
+  .header-dept-badge {
+    display: none !important;
+  }
+
+  /* Hide email under name; keep name compact */
+  .user-info {
+    display: none !important;
+  }
+
+  /* App button: icon only */
+  .app-download-header-btn .app-btn-label {
+    display: none !important;
+  }
+  .app-download-header-btn {
+    padding: 6px 8px !important;
+    font-size: 1rem !important;
+    border-radius: 8px !important;
+  }
+
+  /* Sign Out button: compact */
+  .logout-btn {
+    padding: 6px 10px !important;
+    font-size: 0.75rem !important;
+  }
+
+  /* Header title smaller */
+  .header-left h2 {
+    font-size: 0.95rem !important;
+  }
+
+  /* --- Welcome banner --- */
+  .welcome-banner {
+    padding: 14px 16px !important;
+    border-radius: 10px !important;
+    margin-bottom: 14px !important;
+  }
+  .welcome-banner h3 {
+    font-size: 1.1rem !important;
+    margin-bottom: 2px !important;
+  }
+  .welcome-banner p {
+    font-size: 0.78rem !important;
+  }
+
+  /* --- Periods section toolbar: stack vertically --- */
+  .periods-section-toolbar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .periods-section-title {
+    font-size: 1rem !important;
+  }
+
+  /* Action buttons row: full-width, side by side */
+  .periods-action-buttons {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  .sheet-link-btn,
+  .periods-action-buttons .primary-action-btn {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 9px 10px !important;
+    font-size: 0.8rem !important;
+    text-align: center !important;
+  }
+
+  /* --- Main content padding --- */
+  .dashboard-content {
+    padding: 10px !important;
+  }
+
+  /* --- Feature cards: single column, compact --- */
+  .grid-cards {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  .feature-card {
+    padding: 14px !important;
+    border-radius: 12px !important;
+  }
+
+  .feature-card h4 {
+    font-size: 0.95rem !important;
+    margin-bottom: 6px !important;
+  }
+
+  .feature-card p {
+    font-size: 0.82rem !important;
+    margin-bottom: 10px !important;
+    color: #64748b;
+    line-height: 1.45;
+  }
+
+  /* Period cards */
+  .feature-card.period-card {
+    padding: 14px !important;
+  }
+
+  /* Full width Take Attendance button in period cards */
+  .feature-card .primary-action-btn {
+    width: 100% !important;
+    padding: 11px !important;
+    font-size: 0.88rem !important;
+  }
+
+  /* --- Substitutions section --- */
+  .summary-card {
+    padding: 14px !important;
+    border-radius: 12px !important;
+  }
+
+  /* --- Section headers inside dashboard --- */
+  .dashboard-section h3 {
+    font-size: 1rem !important;
+  }
+}

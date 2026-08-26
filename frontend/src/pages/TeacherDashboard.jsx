@@ -139,7 +139,7 @@ export default function TeacherDashboard() {
       <header className="dashboard-header">
         <div className="header-left">
           <h2>Faculty Portal</h2>
-          <span className="badge role-teacher">{profile?.department || 'Information Technology'}</span>
+          <span className="badge role-teacher header-dept-badge">{profile?.department || 'Information Technology'}</span>
         </div>
         <div className="header-right">
           {avatarUrl && <img src={avatarUrl} alt="Avatar" className="user-avatar" />}
@@ -149,21 +149,11 @@ export default function TeacherDashboard() {
           </div>
           <button
             onClick={() => setShowDownloadModal(true)}
-            style={{
-              background: '#1e293b',
-              border: '1px solid #334155',
-              color: '#38bdf8',
-              borderRadius: '6px',
-              padding: '6px 12px',
-              fontSize: '0.8rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
+            className="app-download-header-btn"
+            title="Download App"
           >
-            <span>📥</span> App
+            <span>📥</span>
+            <span className="app-btn-label"> App</span>
           </button>
           <button onClick={logout} className="logout-btn">Sign Out</button>
         </div>
@@ -179,17 +169,16 @@ export default function TeacherDashboard() {
 
         {/* Assigned Periods Section */}
         <section className="dashboard-section" style={{ marginBottom: '28px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h3 style={{ fontSize: '1.15rem', color: '#0f172a', fontWeight: '700' }}>
+          <div className="periods-section-toolbar">
+            <h3 className="periods-section-title">
               {todayClasses.length > 0 ? "Today's Scheduled Periods" : `Assigned Periods (${displayClasses.length} Periods)`}
             </h3>
-            <div style={{ display: 'flex', gap: '10px' }}>
+            <div className="periods-action-buttons">
               <a
                 href="https://docs.google.com/spreadsheets/d/1hr6niV60fj67sidkYEj7ausv6aoGUndR1wcakoVmRjo/edit"
                 target="_blank"
                 rel="noreferrer"
-                className="secondary-action-btn"
-                style={{ display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none', background: '#059669', color: '#ffffff', border: 'none', padding: '8px 14px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600' }}
+                className="sheet-link-btn"
               >
                 📊 Live Google Sheet
               </a>
