@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
+import DownloadAppModal from '../components/DownloadAppModal';
 import {
   getTodayTeacherClasses,
   getMySwapsApi,
@@ -18,6 +19,7 @@ import {
 export default function TeacherDashboard() {
   const navigate = useNavigate();
   const { user, profile, logout } = useAuth();
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
 
   const [todayClasses, setTodayClasses] = useState([]);
   const [allTimetableSlots, setAllTimetableSlots] = useState([]);
@@ -145,9 +147,29 @@ export default function TeacherDashboard() {
             <strong>{displayName}</strong>
             <small>{displayEmail}</small>
           </div>
+          <button
+            onClick={() => setShowDownloadModal(true)}
+            style={{
+              background: '#1e293b',
+              border: '1px solid #334155',
+              color: '#38bdf8',
+              borderRadius: '6px',
+              padding: '6px 12px',
+              fontSize: '0.8rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <span>📥</span> App
+          </button>
           <button onClick={logout} className="logout-btn">Sign Out</button>
         </div>
       </header>
+
+      <DownloadAppModal isOpen={showDownloadModal} onClose={() => setShowDownloadModal(false)} />
 
       <main className="dashboard-content">
         <div className="welcome-banner">

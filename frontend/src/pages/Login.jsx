@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
+import DownloadAppModal, { detectUserOS } from '../components/DownloadAppModal';
 
 const ALLOWED_ADMIN_EMAILS = [
   'pradeepvijay2k6@gmail.com',
@@ -12,6 +13,8 @@ export default function Login() {
   const [adminPasskey, setAdminPasskey] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const userOS = detectUserOS();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -223,12 +226,41 @@ export default function Login() {
               </Link>
             )}
           </p>
+
+          <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
+            <button
+              type="button"
+              onClick={() => setShowDownloadModal(true)}
+              style={{
+                width: '100%',
+                padding: '9px 14px',
+                borderRadius: '8px',
+                background: '#f8fafc',
+                border: '1px solid #cbd5e1',
+                color: '#0f172a',
+                fontSize: '0.82rem',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transition: 'all 0.2s'
+              }}
+            >
+              <span>📥</span>
+              <span>Download App for {userOS.name}</span>
+            </button>
+          </div>
+
           <div className="role-tags" style={{ marginTop: '14px' }}>
             <span className="role-tag">SSN College of Engineering</span>
             <span className="role-tag">Department of IT</span>
           </div>
         </div>
       </div>
+
+      <DownloadAppModal isOpen={showDownloadModal} onClose={() => setShowDownloadModal(false)} />
     </div>
   );
 }
