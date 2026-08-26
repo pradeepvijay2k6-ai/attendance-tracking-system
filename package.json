@@ -4,8 +4,13 @@
   "private": true,
   "scripts": {
     "start": "cd backend && node src/server.js",
-    "build": "cd backend && npm install",
-    "server": "cd backend && node src/server.js"
+    "build": "cd frontend && npm run build",
+    "server": "cd backend && node src/server.js",
+    "frontend": "cd frontend && npm run dev",
+    "desktop": "npm run build && cd desktop && npm start",
+    "desktop:dev": "cd desktop && npm run dev",
+    "desktop:pack": "npm run build && cd desktop && npm run build",
+    "mobile:build": "cd frontend && npm run build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",

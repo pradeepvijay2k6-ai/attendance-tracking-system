@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad512" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="accentGrad512" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+    <linearGradient id="greenGrad512" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+  </defs>
+  <!-- Background Card -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad512)"/>
+  <!-- Border highlight -->
+  <rect x="6" y="6" width="500" height="500" rx="108" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="8"/>
+  
+  <!-- Clipboard -->
+  <rect x="110" y="118" width="292" height="308" rx="46" fill="rgba(255,255,255,0.06)" stroke="url(#accentGrad512)" stroke-width="12"/>
+  
+  <!-- Top Clip -->
+  <rect x="190" y="90" width="132" height="48" rx="16" fill="url(#accentGrad512)"/>
+  
+  <!-- Checkmark -->
+  <path d="M172 278 L226 332 L348 204" fill="none" stroke="url(#greenGrad512)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Text Label -->
+  <text x="256" y="468" text-anchor="middle" fill="#94a3b8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="36" font-weight="900" letter-spacing="3">SSN IT ATTENDANCE</text>
+</svg>

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+    <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+  </defs>
+  <!-- Background Card -->
+  <rect width="192" height="192" rx="42" fill="url(#bgGrad)"/>
+  <!-- Border highlight -->
+  <rect x="2" y="2" width="188" height="188" rx="40" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="3"/>
+  
+  <!-- Modern SSN Logo Mark / Clipboard with Check -->
+  <rect x="42" y="44" width="108" height="114" rx="18" fill="rgba(255,255,255,0.06)" stroke="url(#accentGrad)" stroke-width="4"/>
+  
+  <!-- Clipboard Top Clip -->
+  <rect x="72" y="34" width="48" height="18" rx="6" fill="url(#accentGrad)"/>
+  
+  <!-- Checkmark -->
+  <path d="M64 104 L84 124 L130 76" fill="none" stroke="url(#greenGrad)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Text Label -->
+  <text x="96" y="174" text-anchor="middle" fill="#94a3b8" font-family="-apple-system, sans-serif" font-size="14" font-weight="800" letter-spacing="1">SSN IT</text>
+</svg>

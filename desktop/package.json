@@ -1,0 +1,43 @@
+{
+  "name": "ssn-it-attendance-desktop",
+  "version": "1.0.0",
+  "description": "SSN College of Engineering - IT Department Attendance Tracking System Desktop Application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "pack:mac": "electron-builder --mac",
+    "pack:win": "electron-builder --win",
+    "pack:linux": "electron-builder --linux",
+    "build": "electron-builder"
+  },
+  "author": "SSN IT Department",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^34.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.ssn.attendance.desktop",
+    "productName": "SSN Attendance",
+    "directories": {
+      "output": "dist-desktop"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "../frontend/dist/**/*",
+      "../standalone-portal.html"
+    ],
+    "mac": {
+      "category": "public.app-category.education",
+      "target": ["dmg", "zip"]
+    },
+    "win": {
+      "target": ["nsis", "portable"]
+    },
+    "linux": {
+      "target": ["AppImage", "deb"]
+    }
+  }
+}
