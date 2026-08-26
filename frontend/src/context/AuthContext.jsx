@@ -22,6 +22,11 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let mounted = true;
 
+    // Safety timeout: if auth takes more than 5s, proceed anyway
+    const safetyTimer = setTimeout(() => {
+      if (mounted) setLoading(false);
+    }, 5000);
+
     async function initAuth() {
       try {
         const { data: { session: initialSession } } = await supabase.auth.getSession();
@@ -36,7 +41,10 @@ export function AuthProvider({ children }) {
       } catch (err) {
         console.error('Error initializing auth:', err);
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted) {
+          clearTimeout(safetyTimer);
+          setLoading(false);
+        }
       }
     }
 
@@ -59,6 +67,7 @@ export function AuthProvider({ children }) {
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimer);
       subscription?.unsubscribe();
     };
   }, [fetchProfile]);

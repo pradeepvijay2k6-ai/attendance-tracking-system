@@ -4,10 +4,24 @@ import { supabase } from '../config/supabase';
  * Initiates Google OAuth Sign-In flow
  */
 export async function signInWithGoogle() {
+  // For installed apps (WebAPK/PWA/Electron), use the canonical deployed URL
+  // so OAuth redirect always succeeds regardless of local file:// or localhost
+  const isInstalledApp = (
+    window.location.protocol === 'file:' ||
+    window.navigator.standalone === true ||
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.desktopApi?.isDesktop
+  );
+
+  const PRODUCTION_URL = 'https://pradeepvijay2k6-ai.github.io/attendance-tracking-system';
+  const redirectBase = isInstalledApp
+    ? PRODUCTION_URL
+    : window.location.origin;
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
+      redirectTo: `${redirectBase}/auth/callback`,
       queryParams: {
         access_type: 'offline',
         prompt: 'consent',

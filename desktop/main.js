@@ -1,8 +1,47 @@
 const { app, BrowserWindow, Menu, shell, ipcMain, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
 
 let mainWindow = null;
+let localServer = null;
+
+function startLocalServer(distDir, callback) {
+  localServer = http.createServer((req, res) => {
+    let reqPath = req.url.split('?')[0];
+    if (reqPath === '/' || !reqPath) reqPath = '/index.html';
+    const filePath = path.join(distDir, reqPath);
+
+    const mimeTypes = {
+      '.html': 'text/html',
+      '.js': 'application/javascript',
+      '.css': 'text/css',
+      '.json': 'application/json',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.svg': 'image/svg+xml',
+      '.ico': 'image/x-icon'
+    };
+
+    if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+      const ext = path.extname(filePath).toLowerCase();
+      res.writeHead(200, {
+        'Content-Type': mimeTypes[ext] || 'application/octet-stream',
+        'Access-Control-Allow-Origin': '*'
+      });
+      fs.createReadStream(filePath).pipe(res);
+    } else {
+      const indexPath = path.join(distDir, 'index.html');
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      fs.createReadStream(indexPath).pipe(res);
+    }
+  });
+
+  localServer.listen(0, '127.0.0.1', () => {
+    const port = localServer.address().port;
+    callback(port);
+  });
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -21,20 +60,20 @@ function createWindow() {
   });
 
   const isDev = process.argv.includes('--dev');
-  const distPath = path.join(__dirname, '../frontend/dist/index.html');
+  const distDir = path.join(__dirname, '../frontend/dist');
   const standalonePath = path.join(__dirname, '../standalone-portal.html');
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173').catch(() => {
-      if (fs.existsSync(distPath)) {
-        mainWindow.loadFile(distPath);
-      } else {
-        mainWindow.loadFile(standalonePath);
-      }
+      startLocalServer(distDir, (port) => {
+        mainWindow.loadURL(`http://127.0.0.1:${port}`);
+      });
     });
   } else {
-    if (fs.existsSync(distPath)) {
-      mainWindow.loadFile(distPath);
+    if (fs.existsSync(path.join(distDir, 'index.html'))) {
+      startLocalServer(distDir, (port) => {
+        mainWindow.loadURL(`http://127.0.0.1:${port}`);
+      });
     } else {
       mainWindow.loadFile(standalonePath);
     }
@@ -44,6 +83,10 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+    if (localServer) {
+      localServer.close();
+      localServer = null;
+    }
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
