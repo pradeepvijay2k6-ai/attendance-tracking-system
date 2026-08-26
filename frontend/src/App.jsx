@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import InstallPwaModal from './components/InstallPwaModal';
@@ -12,9 +12,13 @@ import AdminDashboard from './pages/AdminDashboard';
 import Unauthorized from './pages/Unauthorized';
 import './App.css';
 
+const Router = (typeof window !== 'undefined' && (window.location.protocol === 'file:' || window.desktopApi?.isDesktop))
+  ? HashRouter
+  : BrowserRouter;
+
 export default function App() {
   return (
-    <BrowserRouter>
+    <Router>
       <AuthProvider>
         <InstallPwaModal />
         <Routes>
@@ -66,9 +70,8 @@ export default function App() {
 
           {/* Root & Catch-all Fallback */}
           <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </AuthProvider>
-    </BrowserRouter>
+    </Router>
   );
 }
