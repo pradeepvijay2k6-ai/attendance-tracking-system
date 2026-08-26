@@ -844,28 +844,31 @@ const htmlContent = `<!DOCTYPE html>
       const roster = isItB ? ROSTER_IT_B : ROSTER_IT_A;
       const section = isItB ? 'IT B' : 'IT A';
       const subCode = val.includes('UIT3302') ? 'UIT3302' : (val.includes('UIT3361') ? 'UIT3361' : 'UIT3301');
-      const teacher = TIMETABLE.find(t => t.subCode === subCode && t.section === section)?.teacherName || 'Faculty';
+      const teacher = TIMETABLE.find(t => t.subCode === subCode && t.section === section)?.teacherName || 'Faculty Member';
 
       const table = document.getElementById('sheetMatrixTable');
       let html = \`
         <thead>
           <tr>
-            <th colspan=\"3\" class=\"matrix-header\" style=\"font-size: 0.95rem;\">SSN COLLEGE OF ENGINEERING — IT DEPT</th>
-            <th colspan=\"3\" class=\"matrix-header\">ATTENDANCE RECORDS</th>
+            <th colspan="6" class="matrix-header" style="font-size: 0.95rem;">SSN COLLEGE OF ENGINEERING — IT DEPT</th>
+            <th colspan="3" class="matrix-header">ATTENDANCE RECORDS</th>
           </tr>
           <tr>
-            <th colspan=\"3\" style=\"background: #334155; color: #f8fafc; text-align: center;\">Course: \${subCode} | Section: \${section} | Faculty: \${teacher}</th>
-            <th style=\"background: #1e293b; color: #fff; text-align: center;\">24/08<br>Period 1</th>
-            <th style=\"background: #1e293b; color: #fff; text-align: center;\">23/08<br>Period 2</th>
-            <th style=\"background: #1e293b; color: #fff; text-align: center;\">22/08<br>Period 5</th>
+            <th colspan="6" style="background: #334155; color: #f8fafc; text-align: center;">Course: \${subCode} | Section: \${section} | Faculty: \${teacher}</th>
+            <th style="background: #1e293b; color: #fff; text-align: center;">24/08<br>Period 1</th>
+            <th style="background: #1e293b; color: #fff; text-align: center;">23/08<br>Period 2</th>
+            <th style="background: #1e293b; color: #fff; text-align: center;">22/08<br>Period 5</th>
           </tr>
           <tr>
             <th>Roll No</th>
             <th>Register Number</th>
             <th>Student Name</th>
-            <th style=\"text-align: center;\">Status</th>
-            <th style=\"text-align: center;\">Status</th>
-            <th style=\"text-align: center;\">Status</th>
+            <th style="text-align: center; background: #0f172a; color: #38bdf8;">Present</th>
+            <th style="text-align: center; background: #0f172a; color: #38bdf8;">Total</th>
+            <th style="text-align: center; background: #0f172a; color: #38bdf8;">Attendance %</th>
+            <th style="text-align: center;">Status</th>
+            <th style="text-align: center;">Status</th>
+            <th style="text-align: center;">Status</th>
           </tr>
         </thead>
         <tbody>
@@ -874,14 +877,22 @@ const htmlContent = `<!DOCTYPE html>
       html += roster.map((s, idx) => {
         const isAbsent1 = (idx === 1 || idx === 6);
         const isAbsent2 = (idx === 11 || idx === 24);
+        const presentCount = (isAbsent1 ? 0 : 1) + (isAbsent2 ? 0 : 1) + 1;
+        const totalCount = 3;
+        const pctNum = ((presentCount / totalCount) * 100).toFixed(1);
+        const isEligible = parseFloat(pctNum) >= 75.0;
+
         return \`
           <tr>
             <td><strong>\${s.roll}</strong></td>
             <td><code>\${s.reg}</code></td>
             <td>\${s.name}</td>
-            <td class=\"\${isAbsent1 ? 'sheet-cell-a' : 'sheet-cell-p'}\">\${isAbsent1 ? 'A' : 'P'}</td>
-            <td class=\"\${isAbsent2 ? 'sheet-cell-a' : 'sheet-cell-p'}\">\${isAbsent2 ? 'A' : 'P'}</td>
-            <td class=\"sheet-cell-p\">P</td>
+            <td style="text-align: center; font-weight: 700;">\${presentCount}</td>
+            <td style="text-align: center; font-weight: 700;">\${totalCount}</td>
+            <td style="text-align: center; font-weight: 800; background: \${isEligible ? '#dcfce7' : '#fee2e2'}; color: \${isEligible ? '#15803d' : '#b91c1c'};">\${pctNum}%</td>
+            <td class="\${isAbsent1 ? 'sheet-cell-a' : 'sheet-cell-p'}">\${isAbsent1 ? 'A' : 'P'}</td>
+            <td class="\${isAbsent2 ? 'sheet-cell-a' : 'sheet-cell-p'}">\${isAbsent2 ? 'A' : 'P'}</td>
+            <td class="sheet-cell-p">P</td>
           </tr>
         \`;
       }).join('');

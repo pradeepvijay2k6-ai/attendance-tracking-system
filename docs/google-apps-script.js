@@ -197,62 +197,23 @@ function recordMatrixAttendance(ss, payload) {
   let sheet = ss.getSheetByName(tabName);
   if (!sheet) {
     sheet = ss.insertSheet(tabName);
-
-    // Header Title: Merged across exactly the 3 frozen columns (A1:C1)
-    sheet.getRange('A1:C1').merge()
-      .setValue('SSN COLLEGE OF ENGINEERING — IT DEPT')
-      .setFontWeight('bold')
-      .setFontSize(11)
-      .setBackground('#0f172a')
-      .setFontColor('#ffffff')
-      .setHorizontalAlignment('center');
-
-    sheet.getRange('A2:C2').merge()
-      .setValue('Course: ' + subjectCode + ' | Section: ' + sectionName + ' | Faculty: ' + facultyName)
-      .setFontWeight('bold')
-      .setFontSize(9)
-      .setBackground('#334155')
-      .setFontColor('#f8fafc')
-      .setHorizontalAlignment('center');
-
-    // Column Headers
-    const headerRow = ['Roll No', 'Register Number', 'Student Name'];
-    sheet.getRange(3, 1, 1, 3).setValues([headerRow])
-      .setFontWeight('bold')
-      .setBackground('#1e293b')
-      .setFontColor('#ffffff')
-      .setHorizontalAlignment('center');
-
-    sheet.setColumnWidth(1, 75);
-    sheet.setColumnWidth(2, 140);
-    sheet.setColumnWidth(3, 220);
-
-    // Populate Roster
-    sheet.getRange(4, 1, roster.length, 3).setValues(roster);
-    sheet.getRange(4, 1, roster.length, 1).setHorizontalAlignment('center').setFontWeight('bold');
-    sheet.getRange(4, 2, roster.length, 1).setHorizontalAlignment('center');
-
-    // Freeze exactly 3 rows and 3 columns
-    sheet.setFrozenRows(3);
-    sheet.setFrozenColumns(3);
-
-    SpreadsheetApp.flush();
+    setupMatrixSheetStructure(sheet, sectionName, subjectCode, facultyName, roster);
   } else {
-    // Keep banner updated with actual active subject and faculty
-    sheet.getRange('A2:C2').setValue('Course: ' + subjectCode + ' | Section: ' + sectionName + ' | Faculty: ' + facultyName);
+    // Ensure header banner and summary formulas are up to date
+    ensureSummaryColumns(sheet, sectionName, subjectCode, facultyName, roster);
   }
 
   const dateStr = payload.date || payload.attendance_date || Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd');
   const periodLabel = payload.period || ('Period ' + (payload.period_number || 1));
   const columnHeader = formatDateHeader(dateStr) + '\n' + periodLabel;
 
-  // Search for date column starting at Column 4 (Col D)
+  // Search for date column starting at Column 7 (Col G)
   const lastCol = sheet.getLastColumn();
   let dateColIndex = -1;
 
-  if (lastCol >= 4) {
+  if (lastCol >= 7) {
     const headerRowValues = sheet.getRange(3, 1, 1, lastCol).getValues()[0];
-    for (let c = 3; c < headerRowValues.length; c++) {
+    for (let c = 6; c < headerRowValues.length; c++) {
       if (headerRowValues[c] && String(headerRowValues[c]).trim() === columnHeader.trim()) {
         dateColIndex = c + 1;
         break;
@@ -262,7 +223,7 @@ function recordMatrixAttendance(ss, payload) {
 
   // If column doesn't exist, create it in next empty column
   if (dateColIndex === -1) {
-    dateColIndex = Math.max(lastCol + 1, 4);
+    dateColIndex = Math.max(lastCol + 1, 7);
     sheet.getRange(3, dateColIndex).setValue(columnHeader)
       .setFontWeight('bold')
       .setBackground('#1e293b')
@@ -323,6 +284,166 @@ function recordMatrixAttendance(ss, payload) {
   targetRange.setHorizontalAlignment('center');
 }
 
+/**
+ * Setup brand new Matrix Sheet with frozen summary columns
+ */
+function setupMatrixSheetStructure(sheet, sectionName, subjectCode, facultyName, roster) {
+  // Header Title: Merged across frozen columns (A1:F1)
+  sheet.getRange('A1:F1').merge()
+    .setValue('SSN COLLEGE OF ENGINEERING — IT DEPT')
+    .setFontWeight('bold')
+    .setFontSize(11)
+    .setBackground('#0f172a')
+    .setFontColor('#ffffff')
+    .setHorizontalAlignment('center');
+
+  sheet.getRange('A2:F2').merge()
+    .setValue('Course: ' + subjectCode + ' | Section: ' + sectionName + ' | Faculty: ' + facultyName)
+    .setFontWeight('bold')
+    .setFontSize(9)
+    .setBackground('#334155')
+    .setFontColor('#f8fafc')
+    .setHorizontalAlignment('center');
+
+  // Column Headers (Row 3)
+  const headerRow = ['Roll No', 'Register Number', 'Student Name', 'Present', 'Total', 'Attendance %'];
+  sheet.getRange(3, 1, 1, 6).setValues([headerRow])
+    .setFontWeight('bold')
+    .setBackground('#1e293b')
+    .setFontColor('#ffffff')
+    .setHorizontalAlignment('center');
+
+  // Distinct background for summary columns
+  sheet.getRange(3, 4, 1, 3)
+    .setBackground('#0f172a')
+    .setFontColor('#38bdf8');
+
+  sheet.setColumnWidth(1, 75);
+  sheet.setColumnWidth(2, 140);
+  sheet.setColumnWidth(3, 220);
+  sheet.setColumnWidth(4, 80);
+  sheet.setColumnWidth(5, 80);
+  sheet.setColumnWidth(6, 110);
+
+  // Populate Roster (Cols A, B, C)
+  sheet.getRange(4, 1, roster.length, 3).setValues(roster);
+  sheet.getRange(4, 1, roster.length, 1).setHorizontalAlignment('center').setFontWeight('bold');
+  sheet.getRange(4, 2, roster.length, 1).setHorizontalAlignment('center');
+
+  // Insert Attendance Summary Formulas for each student (Cols D, E, F)
+  const formulas = [];
+  for (let i = 0; i < roster.length; i++) {
+    const rowNum = i + 4;
+    // Col D (Present): =COUNTIF(G4:4, "P")
+    // Col E (Total):   =COUNTIF(G4:4, "P") + COUNTIF(G4:4, "A")
+    // Col F (%):       =IF(E4>0, D4/E4, 1)
+    formulas.push([
+      '=COUNTIF(G' + rowNum + ':' + rowNum + ', "P")',
+      '=COUNTIF(G' + rowNum + ':' + rowNum + ', "P") + COUNTIF(G' + rowNum + ':' + rowNum + ', "A")',
+      '=IF(E' + rowNum + '>0, D' + rowNum + '/E' + rowNum + ', 1)'
+    ]);
+  }
+
+  const formulaRange = sheet.getRange(4, 4, roster.length, 3);
+  formulaRange.setFormulas(formulas);
+  formulaRange.setHorizontalAlignment('center');
+
+  // Format Attendance % column as 0.0%
+  const pctRange = sheet.getRange(4, 6, roster.length, 1);
+  pctRange.setNumberFormat('0.0%').setFontWeight('bold');
+
+  // Conditional formatting for Attendance % (Green for >= 75%, Red for < 75%)
+  applyConditionalFormattingForPercentage(sheet, roster.length);
+
+  // Freeze 3 rows and 6 columns (Columns A-F frozen)
+  sheet.setFrozenRows(3);
+  sheet.setFrozenColumns(6);
+
+  SpreadsheetApp.flush();
+}
+
+/**
+ * Ensures existing sheets have Attendance % columns (D, E, F) and updated banner
+ */
+function ensureSummaryColumns(sheet, sectionName, subjectCode, facultyName, roster) {
+  sheet.getRange('A2:F2').setValue('Course: ' + subjectCode + ' | Section: ' + sectionName + ' | Faculty: ' + facultyName);
+
+  const col4Header = sheet.getRange(3, 4).getValue();
+  if (col4Header !== 'Present' || sheet.getRange(3, 6).getValue() !== 'Attendance %') {
+    // If sheet was created before summary columns, insert 3 columns at D
+    sheet.insertColumnsAfter(3, 3);
+    sheet.getRange(3, 4, 1, 3).setValues([['Present', 'Total', 'Attendance %']])
+      .setFontWeight('bold')
+      .setBackground('#0f172a')
+      .setFontColor('#38bdf8')
+      .setHorizontalAlignment('center');
+
+    sheet.setColumnWidth(4, 80);
+    sheet.setColumnWidth(5, 80);
+    sheet.setColumnWidth(6, 110);
+  }
+
+  // Refresh summary formulas for all student rows
+  const formulas = [];
+  for (let i = 0; i < roster.length; i++) {
+    const rowNum = i + 4;
+    formulas.push([
+      '=COUNTIF(G' + rowNum + ':' + rowNum + ', "P")',
+      '=COUNTIF(G' + rowNum + ':' + rowNum + ', "P") + COUNTIF(G' + rowNum + ':' + rowNum + ', "A")',
+      '=IF(E' + rowNum + '>0, D' + rowNum + '/E' + rowNum + ', 1)'
+    ]);
+  }
+
+  const formulaRange = sheet.getRange(4, 4, roster.length, 3);
+  formulaRange.setFormulas(formulas);
+  formulaRange.setHorizontalAlignment('center');
+
+  const pctRange = sheet.getRange(4, 6, roster.length, 1);
+  pctRange.setNumberFormat('0.0%').setFontWeight('bold');
+
+  applyConditionalFormattingForPercentage(sheet, roster.length);
+  sheet.setFrozenRows(3);
+  sheet.setFrozenColumns(6);
+}
+
+/**
+ * Apply Clean Conditional Formatting:
+ * Green (>= 75%) & Red (< 75%) for Column F
+ */
+function applyConditionalFormattingForPercentage(sheet, rosterLength) {
+  const pctRange = sheet.getRange(4, 6, rosterLength, 1);
+  const rules = sheet.getConditionalFormatRules();
+  const newRules = [];
+
+  // Rule 1: >= 75% -> Green
+  const ruleGreen = SpreadsheetApp.newConditionalFormatRule()
+    .whenNumberGreaterThanOrEqualTo(0.75)
+    .setBackground('#dcfce7')
+    .setFontColor('#15803d')
+    .setRanges([pctRange])
+    .build();
+
+  // Rule 2: < 75% -> Red
+  const ruleRed = SpreadsheetApp.newConditionalFormatRule()
+    .whenNumberLessThan(0.75)
+    .setBackground('#fee2e2')
+    .setFontColor('#b91c1c')
+    .setRanges([pctRange])
+    .build();
+
+  newRules.push(ruleGreen);
+  newRules.push(ruleRed);
+
+  // Preserve other conditional rules if any
+  for (let r = 0; r < rules.length; r++) {
+    if (rules[r].getRanges()[0].getColumn() !== 6) {
+      newRules.push(rules[r]);
+    }
+  }
+
+  sheet.setConditionalFormatRules(newRules);
+}
+
 function recordSessionLog(ss, payload) {
   let logSheet = ss.getSheetByName('Attendance Logs');
   if (!logSheet) {
@@ -370,11 +491,7 @@ function recordSessionLog(ss, payload) {
     }
     absentRolls = absList.join(', ');
   } else if (payload.absent_students && Array.isArray(payload.absent_students)) {
-    const absList = [];
-    for (let j = 0; j < payload.absent_students.length; j++) {
-      absList.push(payload.absent_students[j].roll_no);
-    }
-    absentRolls = absList.join(', ');
+    absentRolls = payload.absent_students.map(function(s) { return s.roll_no; }).join(', ');
   }
 
   logSheet.appendRow([
@@ -393,23 +510,24 @@ function recordSessionLog(ss, payload) {
 }
 
 /**
- * Utility Function: Run this function directly inside Apps Script Editor to fix all existing tab banners!
+ * Utility Function: Run this function directly inside Google Apps Script Editor
+ * to instantly add Attendance %, Present Count & Total Classes columns to ALL existing sheets!
  */
-function updateAllExistingSheetHeaders() {
+function updateAllSheetsWithAttendancePercentage() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheets = ss.getSheets();
 
   for (let i = 0; i < sheets.length; i++) {
     const sheet = sheets[i];
     const name = sheet.getName();
+    if (name === 'Attendance Logs') continue;
 
-    if (name.indexOf('IDC21') !== -1) {
-      const section = name.indexOf('IT B') !== -1 ? 'IT B' : 'IT A';
-      sheet.getRange('A2:C2').setValue('Course: IDC21 | Section: ' + section + ' | Faculty: Kumaresan Kathirvelu');
-    } else if (name.indexOf('IDC101') !== -1) {
-      const section = name.indexOf('IT B') !== -1 ? 'IT B' : 'IT A';
-      sheet.getRange('A2:C2').setValue('Course: IDC101 | Section: ' + section + ' | Faculty: Dr. Arige Sumanth');
-    }
+    const isItB = name.indexOf('IT B') !== -1;
+    const roster = isItB ? ROSTER_IT_B : ROSTER_IT_A;
+    const sectionName = isItB ? 'IT B' : 'IT A';
+    const subjectCode = name.split('-')[1] ? name.split('-')[1].trim() : 'COURSE';
+
+    ensureSummaryColumns(sheet, sectionName, subjectCode, 'Faculty Member', roster);
   }
   SpreadsheetApp.flush();
 }
