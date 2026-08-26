@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
-import DownloadAppModal from '../components/DownloadAppModal';
+import DownloadAppModal, { isRunningAsApp } from '../components/DownloadAppModal';
 import {
   getTodayTeacherClasses,
   getMySwapsApi,
@@ -20,6 +20,7 @@ export default function TeacherDashboard() {
   const navigate = useNavigate();
   const { user, profile, logout } = useAuth();
   const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
 
   const [todayClasses, setTodayClasses] = useState([]);
   const [allTimetableSlots, setAllTimetableSlots] = useState([]);
@@ -59,6 +60,8 @@ export default function TeacherDashboard() {
   const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url;
 
   useEffect(() => {
+    setIsInstalled(isRunningAsApp());
+
     async function loadDashboardData() {
       if (!user) return;
       try {
@@ -147,14 +150,16 @@ export default function TeacherDashboard() {
             <strong>{displayName}</strong>
             <small>{displayEmail}</small>
           </div>
-          <button
-            onClick={() => setShowDownloadModal(true)}
-            className="app-download-header-btn"
-            title="Download App"
-          >
-            <span>📥</span>
-            <span className="app-btn-label"> App</span>
-          </button>
+          {!isInstalled && (
+            <button
+              onClick={() => setShowDownloadModal(true)}
+              className="app-download-header-btn"
+              title="Install App"
+            >
+              <span>📲</span>
+              <span className="app-btn-label"> Install</span>
+            </button>
+          )}
           <button onClick={logout} className="logout-btn">Sign Out</button>
         </div>
       </header>

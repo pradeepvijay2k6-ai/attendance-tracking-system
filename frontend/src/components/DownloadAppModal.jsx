@@ -1,352 +1,243 @@
 import { useState, useEffect } from 'react';
 
-export function detectUserOS() {
-  if (typeof window === 'undefined') return { name: 'Unknown', type: 'desktop', file: '/downloads/SSN-Attendance-Offline.html' };
+/** Detect if running as an installed PWA/WebAPK/Electron app */
+export function isRunningAsApp() {
+  if (typeof window === 'undefined') return false;
+  return (
+    window.navigator.standalone === true ||
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: fullscreen)').matches ||
+    window.location.protocol === 'file:' ||
+    !!window.desktopApi?.isDesktop
+  );
+}
 
+export function detectUserOS() {
+  if (typeof window === 'undefined') return { name: 'Unknown', type: 'desktop', file: null };
   const ua = window.navigator.userAgent.toLowerCase();
   const platform = (window.navigator.userAgentData?.platform || window.navigator.platform || '').toLowerCase();
 
-  if (/iphone|ipad|ipod/.test(ua)) {
-    return { name: 'iOS', type: 'mobile', isIOS: true, file: null, label: 'iOS Web App' };
-  }
-  if (/android/.test(ua)) {
-    return { name: 'Android', type: 'mobile', file: '/downloads/SSN-Attendance.apk', ext: '.apk', label: 'Android APK' };
-  }
-  if (/mac|macintosh|macintel/.test(ua) || /mac/.test(platform)) {
-    return { name: 'macOS', type: 'desktop', file: '/downloads/SSN-Attendance-macOS.zip', ext: '.dmg / .zip', label: 'macOS Desktop' };
-  }
-  if (/win|windows/.test(ua) || /win/.test(platform)) {
-    return { name: 'Windows', type: 'desktop', file: '/downloads/SSN-Attendance-Windows.zip', ext: '.exe / .zip', label: 'Windows App' };
-  }
-  if (/linux/.test(ua) || /linux/.test(platform)) {
-    return { name: 'Linux', type: 'desktop', file: '/downloads/SSN-Attendance-Offline.html', ext: '.AppImage', label: 'Linux Package' };
-  }
-
-  return { name: 'Desktop / Mobile', type: 'desktop', file: '/downloads/SSN-Attendance-Offline.html', ext: '.html', label: 'Portable App' };
+  if (/iphone|ipad|ipod/.test(ua)) return { name: 'iOS', type: 'mobile', isIOS: true, file: null };
+  if (/android/.test(ua))           return { name: 'Android', type: 'mobile', isAndroid: true, file: null };
+  if (/mac|macintosh/.test(ua) || /mac/.test(platform)) return { name: 'macOS', type: 'desktop', file: '/downloads/SSN-Attendance-macOS.zip', ext: '.zip' };
+  if (/win|windows/.test(ua) || /win/.test(platform))   return { name: 'Windows', type: 'desktop', file: '/downloads/SSN-Attendance-Windows.zip', ext: '.zip' };
+  return { name: 'Desktop', type: 'desktop', file: '/downloads/SSN-Attendance-Windows.zip', ext: '.zip' };
 }
 
 export default function DownloadAppModal({ isOpen, onClose }) {
-  const [detectedOS, setDetectedOS] = useState({ name: 'Detecting...', file: '#' });
-  const [downloadSuccess, setDownloadSuccess] = useState('');
+  const [os, setOs] = useState(null);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [showAndroidGuide, setShowAndroidGuide] = useState(false);
+  const [step, setStep] = useState('main'); // 'main' | 'guide' | 'success'
+  const [alreadyInstalled, setAlreadyInstalled] = useState(false);
 
   useEffect(() => {
-    setDetectedOS(detectUserOS());
+    setOs(detectUserOS());
+    setAlreadyInstalled(isRunningAsApp());
 
-    const handlePrompt = (e) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
-
+    const handlePrompt = (e) => { e.preventDefault(); setDeferredPrompt(e); };
     window.addEventListener('beforeinstallprompt', handlePrompt);
     return () => window.removeEventListener('beforeinstallprompt', handlePrompt);
   }, []);
 
-  const handleAndroidInstall = async () => {
+  const handleInstall = async () => {
     if (deferredPrompt) {
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setDownloadSuccess('✓ SSN Attendance installed successfully on your Android device!');
-        setTimeout(() => setDownloadSuccess(''), 6000);
-      }
       setDeferredPrompt(null);
+      if (outcome === 'accepted') setStep('success');
     } else {
-      setShowAndroidGuide(true);
+      setStep('guide');
     }
   };
 
-  const triggerDownload = (filePath, osName) => {
-    if (!filePath) return;
-    const link = document.createElement('a');
-    link.href = filePath;
-    link.download = filePath.split('/').pop();
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    setDownloadSuccess(`✓ Downloading ${osName} package! Check your browser downloads.`);
-    setTimeout(() => setDownloadSuccess(''), 6000);
+  const triggerDownload = (file, name) => {
+    const a = document.createElement('a');
+    a.href = file; a.download = file.split('/').pop();
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setStep('success');
   };
 
   if (!isOpen) return null;
 
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(15, 23, 42, 0.8)',
-        backdropFilter: 'blur(10px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 99999,
-        padding: '20px'
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          background: '#1e293b',
-          color: '#f8fafc',
-          borderRadius: '20px',
-          padding: '28px',
-          maxWidth: '560px',
-          width: '100%',
-          border: '1px solid rgba(255,255,255,0.15)',
-          boxShadow: '0 25px 50px -12px rgba(0,0,0,0.6)',
-          position: 'relative',
-          maxHeight: '90vh',
-          overflowY: 'auto'
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Modal Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{
-              width: '44px',
-              height: '44px',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, #0284c7, #2563eb)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '1.4rem'
-            }}>
-              📥
-            </div>
-            <div>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: '800', margin: 0 }}>Download SSN Attendance</h2>
-              <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '2px 0 0 0' }}>Install on your phone or desktop computer</p>
-            </div>
+  const overlay = {
+    position: 'fixed', inset: 0,
+    background: 'rgba(10,15,28,0.75)',
+    backdropFilter: 'blur(8px)',
+    display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+    zIndex: 99999, padding: '0',
+  };
+
+  const sheet = {
+    background: '#0f172a',
+    color: '#f1f5f9',
+    borderRadius: '24px 24px 0 0',
+    padding: '28px 24px 36px',
+    width: '100%', maxWidth: '480px',
+    border: '1px solid rgba(255,255,255,0.08)',
+    boxShadow: '0 -8px 40px rgba(0,0,0,0.5)',
+    position: 'relative',
+    maxHeight: '85vh',
+    overflowY: 'auto',
+  };
+
+  const primaryBtn = (color = '#2563eb') => ({
+    width: '100%', padding: '14px',
+    background: `linear-gradient(135deg, ${color}, ${color}dd)`,
+    color: '#fff', border: 'none', borderRadius: '14px',
+    fontWeight: '700', fontSize: '1rem', cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+    boxShadow: `0 4px 16px ${color}55`,
+  });
+
+  // ── Already installed view ─────────────────────────────────
+  if (alreadyInstalled) {
+    return (
+      <div style={overlay} onClick={onClose}>
+        <div style={sheet} onClick={e => e.stopPropagation()}>
+          <div style={{ textAlign: 'center', padding: '8px 0 16px' }}>
+            <div style={{ fontSize: '3.5rem', marginBottom: '12px' }}>✅</div>
+            <h2 style={{ fontSize: '1.3rem', fontWeight: '800', margin: '0 0 8px' }}>App Installed!</h2>
+            <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 24px' }}>
+              SSN IT Attendance is already installed on your device. You're all set!
+            </p>
+            <button onClick={onClose} style={primaryBtn('#059669')}>
+              <span>🎉</span> Continue to Dashboard
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'rgba(255,255,255,0.06)',
-              border: 'none',
-              color: '#94a3b8',
-              width: '32px',
-              height: '32px',
-              borderRadius: '50%',
-              fontSize: '1rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            ✕
+        </div>
+      </div>
+    );
+  }
+
+  // ── Success view ───────────────────────────────────────────
+  if (step === 'success') {
+    return (
+      <div style={overlay} onClick={onClose}>
+        <div style={sheet} onClick={e => e.stopPropagation()}>
+          <div style={{ textAlign: 'center', padding: '8px 0 16px' }}>
+            <div style={{ fontSize: '3.5rem', marginBottom: '12px' }}>🎉</div>
+            <h2 style={{ fontSize: '1.3rem', fontWeight: '800', margin: '0 0 8px' }}>Done!</h2>
+            <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 24px' }}>
+              {os?.isAndroid || os?.isIOS
+                ? 'SSN IT Attendance has been added to your home screen.'
+                : 'Your download has started. Open the file to install.'}
+            </p>
+            <button onClick={onClose} style={primaryBtn('#059669')}>
+              <span>✓</span> Got it
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Android Chrome guide ───────────────────────────────────
+  if (step === 'guide') {
+    return (
+      <div style={overlay} onClick={onClose}>
+        <div style={sheet} onClick={e => e.stopPropagation()}>
+          <button onClick={() => setStep('main')} style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: '0.9rem', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>
+            ← Back
+          </button>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: '800', margin: '0 0 16px' }}>Install via Chrome</h2>
+          {[
+            { n: '1', text: 'Open this site in Chrome' },
+            { n: '2', text: 'Tap the ⋮ menu at the top right' },
+            { n: '3', text: 'Tap "Install app" or "Add to Home Screen"' },
+            { n: '4', text: 'Tap Install — done! ✓' },
+          ].map(({ n, text }) => (
+            <div key={n} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', marginBottom: '14px' }}>
+              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#1e3a5f', border: '1px solid #38bdf8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: '800', color: '#38bdf8', flexShrink: 0 }}>{n}</div>
+              <p style={{ color: '#cbd5e1', fontSize: '0.9rem', margin: '4px 0 0', lineHeight: 1.5 }}>{text}</p>
+            </div>
+          ))}
+          <button onClick={onClose} style={{ ...primaryBtn('#2563eb'), marginTop: '8px' }}>
+            <span>✓</span> Got it
           </button>
         </div>
+      </div>
+    );
+  }
 
-        {downloadSuccess && (
-          <div style={{
-            background: '#064e3b',
-            color: '#34d399',
-            padding: '12px 16px',
-            borderRadius: '10px',
-            fontSize: '0.85rem',
-            fontWeight: '700',
-            marginBottom: '16px',
-            border: '1px solid #059669'
-          }}>
-            {downloadSuccess}
+  // ── Main install sheet ─────────────────────────────────────
+  return (
+    <div style={overlay} onClick={onClose}>
+      <div style={sheet} onClick={e => e.stopPropagation()}>
+
+        {/* Handle bar */}
+        <div style={{ width: '40px', height: '4px', borderRadius: '2px', background: 'rgba(255,255,255,0.15)', margin: '-8px auto 20px' }} />
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '24px' }}>
+          <div style={{ width: '52px', height: '52px', borderRadius: '16px', background: 'linear-gradient(135deg, #0284c7, #2563eb)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', flexShrink: 0 }}>
+            📚
+          </div>
+          <div>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0 }}>SSN IT Attendance</h2>
+            <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '2px 0 0' }}>Install on this device</p>
+          </div>
+          <button onClick={onClose} style={{ marginLeft: 'auto', background: 'rgba(255,255,255,0.06)', border: 'none', color: '#94a3b8', width: '34px', height: '34px', borderRadius: '50%', fontSize: '1rem', cursor: 'pointer', flexShrink: 0 }}>✕</button>
+        </div>
+
+        {/* Primary action based on OS */}
+        {os?.isIOS && (
+          <div style={{ background: '#1e293b', borderRadius: '16px', padding: '18px', marginBottom: '16px' }}>
+            <p style={{ fontSize: '0.9rem', color: '#cbd5e1', lineHeight: 1.6, margin: 0 }}>
+              On iPhone/iPad: tap the <strong style={{ color: '#fff' }}>Share</strong> button <strong style={{ color: '#38bdf8' }}>⎋</strong> in Safari, then tap <strong style={{ color: '#fff' }}>"Add to Home Screen"</strong>.
+            </p>
           </div>
         )}
 
-        {/* Primary Auto-Detected OS Card */}
-        <div style={{
-          background: 'linear-gradient(135deg, rgba(2,132,199,0.2), rgba(37,99,235,0.25))',
-          border: '1px solid rgba(56,189,248,0.3)',
-          borderRadius: '14px',
-          padding: '18px',
-          marginBottom: '22px'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <div>
-              <span style={{ fontSize: '0.72rem', background: '#38bdf8', color: '#0f172a', fontWeight: '800', padding: '3px 8px', borderRadius: '12px', textTransform: 'uppercase' }}>
-                Detected System
-              </span>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginTop: '6px', margin: 0 }}>
-                {detectedOS.name} {detectedOS.ext ? `(${detectedOS.ext})` : ''}
-              </h3>
-            </div>
-            <span style={{ fontSize: '2rem' }}>
-              {detectedOS.name === 'macOS' ? '🍏' : detectedOS.name === 'Windows' ? '🪟' : detectedOS.name === 'Android' ? '🤖' : detectedOS.name === 'iOS' ? '🍎' : '💻'}
-            </span>
-          </div>
+        {os?.isAndroid && (
+          <button onClick={handleInstall} style={primaryBtn('#059669')}>
+            <span>🤖</span> Install on Android
+          </button>
+        )}
 
-          {detectedOS.isIOS ? (
-            <div>
-              <p style={{ fontSize: '0.84rem', color: '#cbd5e1', marginBottom: '10px', lineHeight: '1.5' }}>
-                On iPhone & iPad, tap the Safari <strong>Share</strong> button (⎋) and select <strong>"Add to Home Screen"</strong> (⊞) for instant installation.
-              </p>
-            </div>
-          ) : detectedOS.name === 'Android' ? (
-            <div>
-              <button
-                onClick={handleAndroidInstall}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '10px',
-                  background: 'linear-gradient(135deg, #059669, #10b981)',
-                  color: '#ffffff',
-                  border: 'none',
-                  fontWeight: '800',
-                  fontSize: '0.95rem',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 14px rgba(16,185,129,0.4)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  marginBottom: '10px'
-                }}
-              >
-                <span>🤖</span> 1-Tap Install App on Android
-              </button>
+        {!os?.isIOS && !os?.isAndroid && os?.file && (
+          <button onClick={() => triggerDownload(os.file, os.name)} style={primaryBtn('#2563eb')}>
+            <span>⬇️</span> Download for {os?.name}
+          </button>
+        )}
 
-              {showAndroidGuide && (
-                <div style={{ background: '#0f172a', padding: '14px', borderRadius: '10px', fontSize: '0.82rem', color: '#cbd5e1', lineHeight: '1.6' }}>
-                  <div style={{ fontWeight: '700', color: '#38bdf8', marginBottom: '6px' }}>Direct Installation via Chrome:</div>
-                  <div>1. Tap the <strong>three dots</strong> menu (⋮) at top right in Chrome.</div>
-                  <div>2. Tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.</div>
-                  <div style={{ color: '#34d399', marginTop: '6px' }}>✓ Installs instantly with official app icon and offline support!</div>
-                </div>
-              )}
-            </div>
-          ) : (
+        {/* Divider */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '20px 0' }}>
+          <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.07)' }} />
+          <span style={{ fontSize: '0.72rem', color: '#475569', whiteSpace: 'nowrap' }}>OTHER PLATFORMS</span>
+          <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.07)' }} />
+        </div>
+
+        {/* Platform grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          {[
+            { icon: '🍏', label: 'macOS', sub: 'Desktop App', file: '/downloads/SSN-Attendance-macOS.zip' },
+            { icon: '🪟', label: 'Windows', sub: 'Desktop App', file: '/downloads/SSN-Attendance-Windows.zip' },
+            { icon: '🤖', label: 'Android', sub: 'Home Screen', action: handleInstall },
+            { icon: '🍎', label: 'iOS', sub: 'Add to Home Screen', action: () => setStep('guide') },
+          ].map(({ icon, label, sub, file, action }) => (
             <button
-              onClick={() => triggerDownload(detectedOS.file, detectedOS.name)}
+              key={label}
+              onClick={() => action ? action() : triggerDownload(file, label)}
               style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '10px',
-                background: 'linear-gradient(135deg, #0284c7, #2563eb)',
-                color: '#ffffff',
-                border: 'none',
-                fontWeight: '800',
-                fontSize: '0.95rem',
-                cursor: 'pointer',
-                boxShadow: '0 4px 14px rgba(2,132,199,0.4)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px'
+                background: '#1e293b', border: '1px solid #1e3a5f',
+                borderRadius: '12px', padding: '12px 14px',
+                color: '#f1f5f9', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: '10px',
+                textAlign: 'left',
               }}
             >
-              <span>⚡</span> Download for {detectedOS.name}
+              <span style={{ fontSize: '1.4rem' }}>{icon}</span>
+              <div>
+                <div style={{ fontWeight: '700', fontSize: '0.85rem' }}>{label}</div>
+                <div style={{ fontSize: '0.7rem', color: '#38bdf8' }}>{sub}</div>
+              </div>
             </button>
-          )}
+          ))}
         </div>
 
-        {/* All Available Platforms Grid */}
-        <h4 style={{ fontSize: '0.85rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', fontWeight: '700' }}>
-          All Supported Platforms
-        </h4>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
-          {/* macOS */}
-          <button
-            onClick={() => triggerDownload('/downloads/SSN-Attendance-macOS.zip', 'macOS App')}
-            style={{
-              background: '#0f172a',
-              border: '1px solid #334155',
-              borderRadius: '10px',
-              padding: '12px',
-              textAlign: 'left',
-              color: '#f8fafc',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px'
-            }}
-          >
-            <span style={{ fontSize: '1.4rem' }}>🍏</span>
-            <div>
-              <div style={{ fontWeight: '700', fontSize: '0.88rem' }}>macOS App</div>
-              <div style={{ fontSize: '0.72rem', color: '#38bdf8' }}>SSN Attendance.app</div>
-            </div>
-          </button>
-
-          {/* Windows */}
-          <button
-            onClick={() => triggerDownload('/downloads/SSN-Attendance-Windows.zip', 'Windows App')}
-            style={{
-              background: '#0f172a',
-              border: '1px solid #334155',
-              borderRadius: '10px',
-              padding: '12px',
-              textAlign: 'left',
-              color: '#f8fafc',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px'
-            }}
-          >
-            <span style={{ fontSize: '1.4rem' }}>🪟</span>
-            <div>
-              <div style={{ fontWeight: '700', fontSize: '0.88rem' }}>Windows App</div>
-              <div style={{ fontSize: '0.72rem', color: '#38bdf8' }}>.exe / .vbs Launcher</div>
-            </div>
-          </button>
-
-          {/* Android Direct Install */}
-          <button
-            onClick={handleAndroidInstall}
-            style={{
-              background: '#0f172a',
-              border: '1px solid #334155',
-              borderRadius: '10px',
-              padding: '12px',
-              textAlign: 'left',
-              color: '#f8fafc',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px'
-            }}
-          >
-            <span style={{ fontSize: '1.4rem' }}>🤖</span>
-            <div>
-              <div style={{ fontWeight: '700', fontSize: '0.88rem' }}>Android App</div>
-              <div style={{ fontSize: '0.72rem', color: '#34d399' }}>1-Tap WebAPK</div>
-            </div>
-          </button>
-
-          {/* Mobile Offline Package */}
-          <button
-            onClick={() => triggerDownload('/downloads/SSN-Attendance-Mobile.html', 'Mobile Offline App')}
-            style={{
-              background: '#0f172a',
-              border: '1px solid #334155',
-              borderRadius: '10px',
-              padding: '12px',
-              textAlign: 'left',
-              color: '#f8fafc',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px'
-            }}
-          >
-            <span style={{ fontSize: '1.4rem' }}>📱</span>
-            <div>
-              <div style={{ fontWeight: '700', fontSize: '0.88rem' }}>Mobile Offline</div>
-              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Standalone App</div>
-            </div>
-          </button>
-        </div>
-
-        <div style={{ textAlign: 'center', marginTop: '14px', fontSize: '0.75rem', color: '#64748b' }}>
-          SSN College of Engineering • Department of Information Technology
-        </div>
+        <p style={{ textAlign: 'center', fontSize: '0.72rem', color: '#334155', marginTop: '20px', marginBottom: 0 }}>
+          SSN College of Engineering · IT Department
+        </p>
       </div>
     </div>
   );

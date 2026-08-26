@@ -1,37 +1,45 @@
-import { useState } from 'react';
-import DownloadAppModal, { detectUserOS } from './DownloadAppModal';
+import { useState, useEffect } from 'react';
+import DownloadAppModal, { isRunningAsApp } from './DownloadAppModal';
 
 export default function InstallPwaModal() {
   const [showModal, setShowModal] = useState(false);
-  const userOS = detectUserOS();
+  const [isInstalled, setIsInstalled] = useState(false);
+
+  useEffect(() => {
+    // Check if already running as installed app (PWA/WebAPK/Electron)
+    setIsInstalled(isRunningAsApp());
+  }, []);
+
+  // Already installed — show nothing
+  if (isInstalled) return null;
 
   return (
     <>
-      {/* Floating Download & Install App Pill */}
       <button
         onClick={() => setShowModal(true)}
         style={{
           position: 'fixed',
           bottom: '20px',
-          left: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
           zIndex: 999,
           background: 'linear-gradient(135deg, #0284c7, #2563eb)',
           color: '#ffffff',
-          border: '1px solid rgba(255,255,255,0.25)',
+          border: 'none',
           borderRadius: '30px',
-          padding: '8px 16px',
-          fontWeight: '800',
+          padding: '10px 20px',
+          fontWeight: '700',
           fontSize: '0.82rem',
-          boxShadow: '0 8px 24px rgba(37,99,235,0.4)',
+          boxShadow: '0 4px 20px rgba(37,99,235,0.35)',
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
           cursor: 'pointer',
-          transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+          whiteSpace: 'nowrap',
         }}
       >
-        <span style={{ fontSize: '1rem' }}>📥</span>
-        <span>Download App {userOS.ext ? `(${userOS.name})` : ''}</span>
+        <span>📲</span>
+        <span>Install App</span>
       </button>
 
       <DownloadAppModal isOpen={showModal} onClose={() => setShowModal(false)} />
