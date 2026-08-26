@@ -110,7 +110,36 @@ router.get('/students', async (req, res) => {
 
     const { data: students, error } = await query;
     if (error) throw error;
-    res.json({ success: true, count: students.length, students });
+
+    // Fetch attendance records to compute individual percentage
+    const { data: records } = await supabase
+      .from('attendance_records')
+      .select('student_id, status');
+
+    const statsMap = {};
+    (records || []).forEach(r => {
+      if (!statsMap[r.student_id]) {
+        statsMap[r.student_id] = { total: 0, attended: 0 };
+      }
+      statsMap[r.student_id].total++;
+      if (r.status === 'PRESENT') {
+        statsMap[r.student_id].attended++;
+      }
+    });
+
+    const enhancedStudents = (students || []).map(s => {
+      const st = statsMap[s.id] || { total: 0, attended: 0 };
+      const pct = st.total > 0 ? ((st.attended / st.total) * 100).toFixed(1) : '100.0';
+      return {
+        ...s,
+        total_conducted: st.total,
+        total_attended: st.attended,
+        attendance_percentage: parseFloat(pct),
+        is_shortage: parseFloat(pct) < 75.0 && st.total > 0
+      };
+    });
+
+    res.json({ success: true, count: enhancedStudents.length, students: enhancedStudents });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

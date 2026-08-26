@@ -230,7 +230,7 @@
         <div class="table-container">
           <table>
             <thead>
-              <tr><th>Roll No</th><th>Register No</th><th>Student Name</th><th>Section</th><th>Action</th></tr>
+              <tr><th>Roll No</th><th>Register No</th><th>Student Name</th><th>Section</th><th>Attendance %</th><th>Action</th></tr>
             </thead>
             <tbody id="adminStudentsTableBody"></tbody>
           </table>
@@ -561,15 +561,30 @@
       if (q) list = list.filter(s => s.name.toLowerCase().includes(q) || s.roll.includes(q) || s.reg.includes(q));
 
       const tbody = document.getElementById('adminStudentsTableBody');
-      tbody.innerHTML = list.map(s => `
-        <tr>
-          <td><strong>${s.roll}</strong></td>
-          <td><code>${s.reg}</code></td>
-          <td>${s.name}</td>
-          <td><span class="badge badge-primary">${s.section}</span></td>
-          <td><button class="btn btn-outline btn-sm" onclick="openOverrideForStudent('${s.roll}')">✏️ Mark Attd</button></td>
-        </tr>
-      `).join('');
+      tbody.innerHTML = list.map((s, idx) => {
+        const isAbsent1 = (idx === 1 || idx === 6);
+        const isAbsent2 = (idx === 11 || idx === 24);
+        const presentCount = (isAbsent1 ? 0 : 1) + (isAbsent2 ? 0 : 1) + 1;
+        const totalCount = 3;
+        const pctNum = ((presentCount / totalCount) * 100).toFixed(1);
+        const isShortage = parseFloat(pctNum) < 75.0;
+
+        return `
+          <tr>
+            <td><strong>${s.roll}</strong></td>
+            <td><code>${s.reg}</code></td>
+            <td><strong>${s.name}</strong></td>
+            <td><span class="badge badge-primary">${s.section}</span></td>
+            <td>
+              <span class="badge ${isShortage ? 'badge-danger' : 'badge-success'}">
+                ${pctNum}% ${isShortage ? '⚠️ Shortage' : '✓ Good'}
+              </span>
+              <div style="font-size: 0.72rem; color: var(--muted); margin-top: 2px;">${presentCount} of ${totalCount} attended</div>
+            </td>
+            <td><button class="btn btn-outline btn-sm" onclick="openOverrideForStudent('${s.roll}')">✏️ Mark Attd</button></td>
+          </tr>
+        `;
+      }).join('');
     }
 
     function renderAdminFaculty() {

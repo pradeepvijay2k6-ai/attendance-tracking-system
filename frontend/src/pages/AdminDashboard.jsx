@@ -671,43 +671,73 @@ export default function AdminDashboard() {
                     <th>Roll No</th>
                     <th>Register Number</th>
                     <th>Full Name</th>
-                    <th>Email</th>
-                    <th>Class</th>
-                    <th>Section</th>
+                    <th>Class / Section</th>
+                    <th>Attendance %</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {students.length === 0 ? (
-                    <tr><td colSpan="7" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>No students found.</td></tr>
+                    <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>No students found.</td></tr>
                   ) : (
-                    students.map((s) => (
-                      <tr key={s.id}>
-                        <td><strong>{s.roll_no}</strong></td>
-                        <td><code>{s.register_no}</code></td>
-                        <td>{s.full_name}</td>
-                        <td>{s.email}</td>
-                        <td>{s.classes?.name || '—'}</td>
-                        <td><span className="badge role-teacher">{s.sections?.name || '—'}</span></td>
-                        <td>
-                          <div style={{ display: 'flex', gap: '6px' }}>
-                            <button
-                              className="action-btn"
-                              style={{ background: '#059669', color: '#ffffff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '0.78rem', fontWeight: '600' }}
-                              onClick={() => handleOpenOverrideModal(s)}
-                            >
-                              ✏️ Mark Attd
-                            </button>
-                            <button className="action-btn edit" onClick={() => {
-                              setEditingStudent(s);
-                              setStudentForm({ register_no: s.register_no, roll_no: s.roll_no, full_name: s.full_name, email: s.email, class_id: s.class_id, section_id: s.section_id });
-                              setShowStudentModal(true);
-                            }}>Edit</button>
-                            <button className="action-btn delete" onClick={() => handleDeleteStudent(s.id, s.full_name)}>Delete</button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                    students.map((s) => {
+                      const pct = s.attendance_percentage !== undefined ? s.attendance_percentage : 100.0;
+                      const isShortage = s.is_shortage || (pct < 75.0 && (s.total_conducted || 0) > 0);
+                      const attended = s.total_attended !== undefined ? s.total_attended : 0;
+                      const total = s.total_conducted !== undefined ? s.total_conducted : 0;
+
+                      return (
+                        <tr key={s.id}>
+                          <td><strong>{s.roll_no}</strong></td>
+                          <td><code>{s.register_no}</code></td>
+                          <td>
+                            <strong>{s.full_name}</strong>
+                            {s.email && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{s.email}</div>}
+                          </td>
+                          <td>
+                            <span className="badge role-teacher">{s.sections?.name || '—'}</span>
+                            <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>{s.classes?.name || 'B.Tech IT'}</div>
+                          </td>
+                          <td>
+                            <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                              <span
+                                className="badge"
+                                style={{
+                                  background: isShortage ? '#fee2e2' : '#dcfce7',
+                                  color: isShortage ? '#b91c1c' : '#15803d',
+                                  fontWeight: '800',
+                                  fontSize: '0.82rem',
+                                  padding: '4px 8px',
+                                  borderRadius: '6px'
+                                }}
+                              >
+                                {pct}% {isShortage ? '⚠️ Shortage' : '✓ Good'}
+                              </span>
+                              <span style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
+                                {attended} of {total} classes
+                              </span>
+                            </div>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <button
+                                className="action-btn"
+                                style={{ background: '#059669', color: '#ffffff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '0.78rem', fontWeight: '600' }}
+                                onClick={() => handleOpenOverrideModal(s)}
+                              >
+                                ✏️ Mark Attd
+                              </button>
+                              <button className="action-btn edit" onClick={() => {
+                                setEditingStudent(s);
+                                setStudentForm({ register_no: s.register_no, roll_no: s.roll_no, full_name: s.full_name, email: s.email, class_id: s.class_id, section_id: s.section_id });
+                                setShowStudentModal(true);
+                              }}>Edit</button>
+                              <button className="action-btn delete" onClick={() => handleDeleteStudent(s.id, s.full_name)}>Delete</button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
