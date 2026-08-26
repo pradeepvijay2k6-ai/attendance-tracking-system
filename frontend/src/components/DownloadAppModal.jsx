@@ -253,7 +253,7 @@ export default function DownloadAppModal({ isOpen, onClose }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
           {/* macOS */}
           <button
-            onClick={() => triggerDownload('/downloads/SSN-Attendance-macOS.zip', 'macOS')}
+            onClick={() => triggerDownload('/downloads/SSN-Attendance-macOS.zip', 'macOS App')}
             style={{
               background: '#0f172a',
               border: '1px solid #334155',
@@ -269,14 +269,14 @@ export default function DownloadAppModal({ isOpen, onClose }) {
           >
             <span style={{ fontSize: '1.4rem' }}>🍏</span>
             <div>
-              <div style={{ fontWeight: '700', fontSize: '0.88rem' }}>macOS</div>
-              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>.dmg / .zip</div>
+              <div style={{ fontWeight: '700', fontSize: '0.88rem' }}>macOS App</div>
+              <div style={{ fontSize: '0.72rem', color: '#38bdf8' }}>SSN Attendance.app</div>
             </div>
           </button>
 
           {/* Windows */}
           <button
-            onClick={() => triggerDownload('/downloads/SSN-Attendance-Windows.zip', 'Windows')}
+            onClick={() => triggerDownload('/downloads/SSN-Attendance-Windows.zip', 'Windows App')}
             style={{
               background: '#0f172a',
               border: '1px solid #334155',
@@ -292,8 +292,8 @@ export default function DownloadAppModal({ isOpen, onClose }) {
           >
             <span style={{ fontSize: '1.4rem' }}>🪟</span>
             <div>
-              <div style={{ fontWeight: '700', fontSize: '0.88rem' }}>Windows</div>
-              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>.exe / .zip</div>
+              <div style={{ fontWeight: '700', fontSize: '0.88rem' }}>Windows App</div>
+              <div style={{ fontSize: '0.72rem', color: '#38bdf8' }}>.exe / .vbs Launcher</div>
             </div>
           </button>
 
@@ -316,13 +316,13 @@ export default function DownloadAppModal({ isOpen, onClose }) {
             <span style={{ fontSize: '1.4rem' }}>🤖</span>
             <div>
               <div style={{ fontWeight: '700', fontSize: '0.88rem' }}>Android App</div>
-              <div style={{ fontSize: '0.72rem', color: '#34d399' }}>1-Tap Install</div>
+              <div style={{ fontSize: '0.72rem', color: '#34d399' }}>1-Tap WebAPK</div>
             </div>
           </button>
 
-          {/* Offline Standalone Edition */}
+          {/* Mobile Offline Package */}
           <button
-            onClick={() => triggerDownload('/downloads/SSN-Attendance-Offline.html', 'Offline Edition')}
+            onClick={() => triggerDownload('/downloads/SSN-Attendance-Mobile.html', 'Mobile Offline App')}
             style={{
               background: '#0f172a',
               border: '1px solid #334155',
@@ -336,10 +336,10 @@ export default function DownloadAppModal({ isOpen, onClose }) {
               gap: '10px'
             }}
           >
-            <span style={{ fontSize: '1.4rem' }}>🌐</span>
+            <span style={{ fontSize: '1.4rem' }}>📱</span>
             <div>
-              <div style={{ fontWeight: '700', fontSize: '0.88rem' }}>Portable Web</div>
-              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Standalone .html</div>
+              <div style={{ fontWeight: '700', fontSize: '0.88rem' }}>Mobile Offline</div>
+              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Standalone App</div>
             </div>
           </button>
         </div>
