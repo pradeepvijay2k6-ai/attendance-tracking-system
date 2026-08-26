@@ -288,12 +288,15 @@ function recordMatrixAttendance(ss, payload) {
  * Setup brand new Matrix Sheet with frozen summary columns
  */
 function setupMatrixSheetStructure(sheet, sectionName, subjectCode, facultyName, roster) {
+  // 1. Temporarily unfreeze to prevent "Cannot merge frozen and non-frozen columns" error
+  sheet.setFrozenColumns(0);
+  sheet.setFrozenRows(0);
+
   try {
-    sheet.getRange('A1:C1').breakApart();
-    sheet.getRange('A2:C2').breakApart();
+    sheet.getRange('A1:Z2').breakApart();
   } catch (e) {}
 
-  // Header Title: Merged across frozen columns (A1:F1)
+  // 2. Header Title: Merged across frozen columns (A1:F1)
   sheet.getRange('A1:F1').merge()
     .setValue('SSN COLLEGE OF ENGINEERING — IT DEPT')
     .setFontWeight('bold')
@@ -310,7 +313,7 @@ function setupMatrixSheetStructure(sheet, sectionName, subjectCode, facultyName,
     .setFontColor('#f8fafc')
     .setHorizontalAlignment('center');
 
-  // Column Headers (Row 3)
+  // 3. Column Headers (Row 3)
   const headerRow = ['Roll No', 'Register Number', 'Student Name', 'Present', 'Total', 'Attendance %'];
   sheet.getRange(3, 1, 1, 6).setValues([headerRow])
     .setFontWeight('bold')
@@ -330,12 +333,12 @@ function setupMatrixSheetStructure(sheet, sectionName, subjectCode, facultyName,
   sheet.setColumnWidth(5, 80);
   sheet.setColumnWidth(6, 110);
 
-  // Populate Roster (Cols A, B, C)
+  // 4. Populate Roster (Cols A, B, C)
   sheet.getRange(4, 1, roster.length, 3).setValues(roster);
   sheet.getRange(4, 1, roster.length, 1).setHorizontalAlignment('center').setFontWeight('bold');
   sheet.getRange(4, 2, roster.length, 1).setHorizontalAlignment('center');
 
-  // Insert Attendance Summary Formulas for each student (Cols D, E, F)
+  // 5. Insert Attendance Summary Formulas for each student (Cols D, E, F)
   const formulas = [];
   for (let i = 0; i < roster.length; i++) {
     const rowNum = i + 4;
@@ -357,7 +360,7 @@ function setupMatrixSheetStructure(sheet, sectionName, subjectCode, facultyName,
   // Conditional formatting for Attendance % (Green for >= 75%, Red for < 75%)
   applyConditionalFormattingForPercentage(sheet, roster.length);
 
-  // Freeze 3 rows and 6 columns (Columns A-F frozen)
+  // 6. Freeze 3 rows and 6 columns (Columns A-F frozen)
   sheet.setFrozenRows(3);
   sheet.setFrozenColumns(6);
 
@@ -368,11 +371,50 @@ function setupMatrixSheetStructure(sheet, sectionName, subjectCode, facultyName,
  * Ensures existing sheets have Attendance % columns (D, E, F) and updated banner
  */
 function ensureSummaryColumns(sheet, sectionName, subjectCode, facultyName, roster) {
+  // 1. Temporarily unfreeze to prevent "Cannot merge frozen and non-frozen columns" error
+  sheet.setFrozenColumns(0);
+  sheet.setFrozenRows(0);
+
+  // 2. Extract existing teacher name if present
+  let existingA2 = '';
   try {
-    sheet.getRange('A1:C1').breakApart();
-    sheet.getRange('A2:C2').breakApart();
+    existingA2 = String(sheet.getRange('A2').getValue() || '');
   } catch (e) {}
 
+  let teacher = facultyName;
+  if (existingA2.indexOf('Faculty:') !== -1) {
+    teacher = existingA2.split('Faculty:')[1].trim();
+  }
+
+  // 3. Break apart old merged headers
+  try {
+    sheet.getRange('A1:Z2').breakApart();
+  } catch (e) {}
+
+  // 4. Check if columns D, E, F need to be inserted
+  const col4Header = String(sheet.getRange(3, 4).getValue() || '').trim();
+  if (col4Header !== 'Present') {
+    sheet.insertColumnsAfter(3, 3);
+  }
+
+  sheet.getRange(3, 1, 1, 6).setValues([['Roll No', 'Register Number', 'Student Name', 'Present', 'Total', 'Attendance %']])
+    .setFontWeight('bold')
+    .setBackground('#1e293b')
+    .setFontColor('#ffffff')
+    .setHorizontalAlignment('center');
+
+  sheet.getRange(3, 4, 1, 3)
+    .setBackground('#0f172a')
+    .setFontColor('#38bdf8');
+
+  sheet.setColumnWidth(1, 75);
+  sheet.setColumnWidth(2, 140);
+  sheet.setColumnWidth(3, 220);
+  sheet.setColumnWidth(4, 80);
+  sheet.setColumnWidth(5, 80);
+  sheet.setColumnWidth(6, 110);
+
+  // 5. Merge banners across A1:F1 and A2:F2
   sheet.getRange('A1:F1').merge()
     .setValue('SSN COLLEGE OF ENGINEERING — IT DEPT')
     .setFontWeight('bold')
@@ -382,29 +424,14 @@ function ensureSummaryColumns(sheet, sectionName, subjectCode, facultyName, rost
     .setHorizontalAlignment('center');
 
   sheet.getRange('A2:F2').merge()
-    .setValue('Course: ' + subjectCode + ' | Section: ' + sectionName + ' | Faculty: ' + facultyName)
+    .setValue('Course: ' + subjectCode + ' | Section: ' + sectionName + ' | Faculty: ' + teacher)
     .setFontWeight('bold')
     .setFontSize(9)
     .setBackground('#334155')
     .setFontColor('#f8fafc')
     .setHorizontalAlignment('center');
 
-  const col4Header = sheet.getRange(3, 4).getValue();
-  if (col4Header !== 'Present' || sheet.getRange(3, 6).getValue() !== 'Attendance %') {
-    // If sheet was created before summary columns, insert 3 columns at D
-    sheet.insertColumnsAfter(3, 3);
-    sheet.getRange(3, 4, 1, 3).setValues([['Present', 'Total', 'Attendance %']])
-      .setFontWeight('bold')
-      .setBackground('#0f172a')
-      .setFontColor('#38bdf8')
-      .setHorizontalAlignment('center');
-
-    sheet.setColumnWidth(4, 80);
-    sheet.setColumnWidth(5, 80);
-    sheet.setColumnWidth(6, 110);
-  }
-
-  // Refresh summary formulas for all student rows
+  // 6. Refresh summary formulas for all student rows
   const formulas = [];
   for (let i = 0; i < roster.length; i++) {
     const rowNum = i + 4;
@@ -423,8 +450,12 @@ function ensureSummaryColumns(sheet, sectionName, subjectCode, facultyName, rost
   pctRange.setNumberFormat('0.0%').setFontWeight('bold');
 
   applyConditionalFormattingForPercentage(sheet, roster.length);
+
+  // 7. Re-freeze 3 rows and 6 columns
   sheet.setFrozenRows(3);
   sheet.setFrozenColumns(6);
+
+  SpreadsheetApp.flush();
 }
 
 /**
