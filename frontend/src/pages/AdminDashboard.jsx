@@ -814,8 +814,18 @@ export default function AdminDashboard() {
                             className="action-btn"
                             style={{ background: '#0284c7', color: '#ffffff', border: 'none', padding: '5px 9px', borderRadius: '4px', fontSize: '0.78rem', fontWeight: '600' }}
                             onClick={() => {
-                              setTimetableForm(prev => ({ ...prev, teacher_id: t.id }));
                               setEditingTimetable(null);
+                              setTimetableForm({
+                                class_id:      classesList[0]?.id  || '',
+                                section_id:    sectionsList[0]?.id || '',
+                                subject_id:    subjectsList[0]?.id || '',
+                                teacher_id:    t.id,
+                                day_of_week:   1,
+                                period_number: 1,
+                                start_time:    '09:00:00',
+                                end_time:      '10:00:00',
+                                room_no:       'Room 101'
+                              });
                               setActiveTab('timetable');
                               setShowTimetableModal(true);
                             }}
@@ -948,8 +958,18 @@ export default function AdminDashboard() {
                           className="action-btn"
                           style={{ background: '#0284c7', color: '#ffffff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '0.78rem', fontWeight: '600' }}
                           onClick={() => {
-                            setTimetableForm(prev => ({ ...prev, subject_id: sub.id, teacher_id: teachers[0]?.id || '' }));
                             setEditingTimetable(null);
+                            setTimetableForm({
+                              class_id:      classesList[0]?.id  || '',
+                              section_id:    sectionsList[0]?.id || '',
+                              subject_id:    sub.id,
+                              teacher_id:    teachers[0]?.id     || '',
+                              day_of_week:   1,
+                              period_number: 1,
+                              start_time:    '09:00:00',
+                              end_time:      '10:00:00',
+                              room_no:       'Room 101'
+                            });
                             setActiveTab('timetable');
                             setShowTimetableModal(true);
                           }}
@@ -1222,6 +1242,24 @@ export default function AdminDashboard() {
                 <select value={timetableForm.teacher_id} onChange={(e) => setTimetableForm({ ...timetableForm, teacher_id: e.target.value })}>
                   {teachers.map((t) => <option key={t.id} value={t.id}>{t.full_name} ({t.email})</option>)}
                 </select>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="form-group">
+                  <label>Start Time</label>
+                  <input
+                    type="time"
+                    value={timetableForm.start_time?.slice(0, 5) || '09:00'}
+                    onChange={(e) => setTimetableForm({ ...timetableForm, start_time: e.target.value + ':00' })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>End Time</label>
+                  <input
+                    type="time"
+                    value={timetableForm.end_time?.slice(0, 5) || '10:00'}
+                    onChange={(e) => setTimetableForm({ ...timetableForm, end_time: e.target.value + ':00' })}
+                  />
+                </div>
               </div>
               <div className="form-group">
                 <label>Room / Hall</label>
