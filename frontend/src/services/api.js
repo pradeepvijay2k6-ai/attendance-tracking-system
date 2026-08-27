@@ -654,24 +654,35 @@ export async function getAdminTimetablesApi() {
 }
 
 export async function createTimetableApi(timetableData) {
+  // Always coerce these to integers — <select> elements return strings
+  const payload = {
+    ...timetableData,
+    day_of_week:   parseInt(timetableData.day_of_week,   10),
+    period_number: parseInt(timetableData.period_number, 10)
+  };
   try {
-    const response = await apiClient.post('/admin/timetables', timetableData);
+    const response = await apiClient.post('/admin/timetables', payload);
     return response.data;
   } catch (err) {
     console.warn('Backend create timetable fallback:', err.message);
-    const { data, error } = await supabase.from('timetables').insert([timetableData]).select().single();
+    const { data, error } = await supabase.from('timetables').insert([payload]).select().single();
     if (error) throw error;
     return { success: true, timetable: data };
   }
 }
 
 export async function updateTimetableApi(id, timetableData) {
+  const payload = {
+    ...timetableData,
+    day_of_week:   parseInt(timetableData.day_of_week,   10),
+    period_number: parseInt(timetableData.period_number, 10)
+  };
   try {
-    const response = await apiClient.put(`/admin/timetables/${id}`, timetableData);
+    const response = await apiClient.put(`/admin/timetables/${id}`, payload);
     return response.data;
   } catch (err) {
     console.warn('Backend update timetable fallback:', err.message);
-    const { data, error } = await supabase.from('timetables').update(timetableData).eq('id', id).select().single();
+    const { data, error } = await supabase.from('timetables').update(payload).eq('id', id).select().single();
     if (error) throw error;
     return { success: true, timetable: data };
   }
