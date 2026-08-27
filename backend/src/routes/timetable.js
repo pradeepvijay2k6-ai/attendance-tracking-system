@@ -151,4 +151,111 @@ router.get('/:timetable_id/students', async (req, res) => {
   }
 });
 
+
+/**
+ * GET /api/timetable/student
+ * Returns timetable slots + per-subject attendance stats for the logged-in student.
+ *
+ * Query params:
+ *   email  (optional) — student email; falls back to req.user.email from auth header
+ */
+router.get('/student', async (req, res) => {
+  try {
+    const email = req.query.email || req.user?.email;
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Student email is required', timetable: [], subjects: [] });
+    }
+
+    // 1. Look up the student record by email
+    const { data: student, error: stErr } = await supabase
+      .from('students')
+      .select('id, register_no, roll_no, full_name, email, class_id, section_id, is_active')
+      .eq('email', email)
+      .single();
+
+    if (stErr || !student) {
+      return res.status(404).json({ success: false, message: `No student found with email: ${email}`, timetable: [], subjects: [] });
+    }
+
+    // 2. Fetch all timetable slots for this student's class + section
+    const { data: slots, error: ttErr } = await supabase
+      .from('timetables')
+      .select(`
+        id,
+        day_of_week,
+        period_number,
+        start_time,
+        end_time,
+        room_no,
+        classes  (id, name, code),
+        sections (id, name),
+        subjects (id, name, code),
+        profiles (id, full_name, email)
+      `)
+      .eq('class_id', student.class_id)
+      .eq('section_id', student.section_id)
+      .order('day_of_week',   { ascending: true })
+      .order('period_number', { ascending: true });
+
+    if (ttErr) throw ttErr;
+
+    // 3. Fetch all attendance records for this student (with session info)
+    const { data: records } = await supabase
+      .from('attendance_records')
+      .select('status, attendance_sessions(subject_id, attendance_date)')
+      .eq('student_id', student.id);
+
+    // Build per-subject stats map
+    const subjectStats = {};
+    (records || []).forEach((r) => {
+      const subjectId = r.attendance_sessions?.subject_id;
+      if (!subjectId) return;
+      if (!subjectStats[subjectId]) subjectStats[subjectId] = { total: 0, attended: 0 };
+      subjectStats[subjectId].total++;
+      if (r.status === 'present') subjectStats[subjectId].attended++;
+    });
+
+    // 4. Build unique subject summaries from timetable slots
+    const DAY_NAMES = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const subjectMap = {};
+    (slots || []).forEach((slot) => {
+      const subId = slot.subjects?.id;
+      if (!subId || subjectMap[subId]) return;
+      const s = subjectStats[subId] || { total: 0, attended: 0 };
+      const pct = s.total > 0 ? parseFloat(((s.attended / s.total) * 100).toFixed(1)) : 100.0;
+      subjectMap[subId] = {
+        subject_id: subId,
+        subject_name: slot.subjects?.name,
+        subject_code: slot.subjects?.code,
+        teacher_name: slot.profiles?.full_name,
+        teacher_email: slot.profiles?.email,
+        class_name: slot.classes?.name,
+        section_name: slot.sections?.name,
+        total_conducted: s.total,
+        total_attended: s.attended,
+        attendance_percentage: pct,
+        is_shortage: pct < 75.0 && s.total > 0
+      };
+    });
+
+    // Augment timetable rows with friendly day name
+    const timetableWithDays = (slots || []).map((slot) => ({
+      ...slot,
+      day_name: DAY_NAMES[slot.day_of_week] || `Day ${slot.day_of_week}`
+    }));
+
+    res.json({
+      success: true,
+      student,
+      timetable: timetableWithDays,
+      subjects: Object.values(subjectMap)
+    });
+  } catch (err) {
+    console.error('Server error in GET /timetable/student:', err);
+    res.status(500).json({ success: false, message: 'Internal server error', timetable: [], subjects: [] });
+  }
+});
+
 module.exports = router;
+

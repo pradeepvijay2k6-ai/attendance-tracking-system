@@ -982,3 +982,111 @@ export async function adminOverrideStudentAttendanceApi({
     throw err;
   }
 }
+
+// ==============================================================================
+// STUDENT TIMETABLE & ATTENDANCE APIS
+// ==============================================================================
+
+/**
+ * Fetches the timetable slots and per-subject attendance statistics
+ * for the currently logged-in student (identified by their Supabase auth email).
+ *
+ * Returns: { success, student, timetable: [...], subjects: [...] }
+ *   - timetable  — all slots for the student's class+section, with day_name
+ *   - subjects   — unique subjects with attendance_percentage, total_conducted, etc.
+ */
+export async function getStudentTimetableApi() {
+  const { data: { user } } = await supabase.auth.getUser();
+  const email = user?.email;
+
+  // ── Backend path ──────────────────────────────────────────────────────────
+  try {
+    const params = email ? { email } : {};
+    const response = await apiClient.get('/timetable/student', { params });
+    if (response.data?.success) return response.data;
+  } catch (err) {
+    console.warn('Backend /timetable/student failed, falling back to Supabase:', err.message);
+  }
+
+  // ── Supabase direct fallback ──────────────────────────────────────────────
+  if (!email) return { success: false, student: null, timetable: [], subjects: [] };
+
+  try {
+    // 1. Look up student record
+    const { data: student, error: stErr } = await supabase
+      .from('students')
+      .select('id, register_no, roll_no, full_name, email, class_id, section_id, is_active')
+      .eq('email', email)
+      .single();
+
+    if (stErr || !student) return { success: false, student: null, timetable: [], subjects: [] };
+
+    // 2. Fetch timetable for student's class + section
+    const { data: slots } = await supabase
+      .from('timetables')
+      .select(`
+        id, day_of_week, period_number, start_time, end_time, room_no,
+        classes (id, name, code),
+        sections (id, name),
+        subjects (id, name, code),
+        profiles (id, full_name, email)
+      `)
+      .eq('class_id', student.class_id)
+      .eq('section_id', student.section_id)
+      .order('day_of_week', { ascending: true })
+      .order('period_number', { ascending: true });
+
+    // 3. Fetch attendance records for this student
+    const { data: records } = await supabase
+      .from('attendance_records')
+      .select('status, attendance_sessions(subject_id)')
+      .eq('student_id', student.id);
+
+    // Build per-subject stats
+    const subjectStats = {};
+    (records || []).forEach((r) => {
+      const sid = r.attendance_sessions?.subject_id;
+      if (!sid) return;
+      if (!subjectStats[sid]) subjectStats[sid] = { total: 0, attended: 0 };
+      subjectStats[sid].total++;
+      if (r.status === 'present') subjectStats[sid].attended++;
+    });
+
+    const DAY_NAMES = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const subjectMap = {};
+    (slots || []).forEach((slot) => {
+      const subId = slot.subjects?.id;
+      if (!subId || subjectMap[subId]) return;
+      const s = subjectStats[subId] || { total: 0, attended: 0 };
+      const pct = s.total > 0 ? parseFloat(((s.attended / s.total) * 100).toFixed(1)) : 100.0;
+      subjectMap[subId] = {
+        subject_id: subId,
+        subject_name: slot.subjects?.name,
+        subject_code: slot.subjects?.code,
+        teacher_name: slot.profiles?.full_name,
+        teacher_email: slot.profiles?.email,
+        class_name: slot.classes?.name,
+        section_name: slot.sections?.name,
+        total_conducted: s.total,
+        total_attended: s.attended,
+        attendance_percentage: pct,
+        is_shortage: pct < 75.0 && s.total > 0
+      };
+    });
+
+    const timetableWithDays = (slots || []).map((slot) => ({
+      ...slot,
+      day_name: DAY_NAMES[slot.day_of_week] || `Day ${slot.day_of_week}`
+    }));
+
+    return {
+      success: true,
+      student,
+      timetable: timetableWithDays,
+      subjects: Object.values(subjectMap)
+    };
+  } catch (err) {
+    console.error('Supabase student timetable fallback error:', err);
+    return { success: false, student: null, timetable: [], subjects: [] };
+  }
+}
