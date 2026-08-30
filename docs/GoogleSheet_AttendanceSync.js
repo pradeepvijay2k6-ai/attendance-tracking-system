@@ -1,24 +1,18 @@
 /**
  * ==============================================================================
  * GOOGLE APPS SCRIPT FOR ATTENDANCE TRACKING SYSTEM
- * Subject-Wise Attendance & Topics Covered Live Sync
+ * Section + Subject-Wise Attendance with Live % Sum & Clean Headings
  * Department of Information Technology
  * ==============================================================================
  * 
- * FEATURES:
- * 1. Automatically creates attractive, clean SUBJECT-WISE tabs (e.g., "IT A - UIT3361", "IT B - UIT3301").
- * 2. Guaranteed zero duplicate student rows (indexes by Register No, Roll No, and Name).
- * 3. Shows Date, Period, and TOPICS COVERED directly in the header of each period column.
- * 4. Beautiful modern styling: Soft green for Present, soft red for Absent, frozen header & roster.
- * 5. Automatic live summary at the bottom (Present, Absent, Attendance %).
- * 6. Also maintains a chronological master "Topics & Syllabus Log" tab.
- * 
- * HOW TO SET THIS UP (Takes 30 seconds):
- * 1. Open your Google Sheet (https://docs.google.com/spreadsheets/d/1hr6niV60fj67sidkYEj7ausv6aoGUndR1wcakoVmRjo/edit).
- * 2. Go to "Extensions" -> "Apps Script".
- * 3. Replace ALL existing code with this file.
- * 4. Click "Save" (disk icon).
- * 5. Click "Deploy" (top right) -> "Manage deployments" -> Click pencil (Edit) -> Version: "New version" -> Click "Deploy".
+ * COLUMN STRUCTURE:
+ * - Col A: Roll No (e.g. 1, 2, 3)
+ * - Col B: Register No (e.g. 3122255002001)
+ * - Col C: Student Name (e.g. Aaditya B M)
+ * - Col D: Attended (P) (Live sum formula: =COUNTIF(G3:ZZ3, "P"))
+ * - Col E: Total Classes (Live sum formula: =COUNTIF(G3:ZZ3, "P") + COUNTIF(G3:ZZ3, "A"))
+ * - Col F: Attendance % (Live percentage formula: =IF(E3>0, D3/E3, 1))
+ * - Col G, H, I, ...: Period Attendance Columns (Date on Row 1, Topics Covered on Row 2)
  * ==============================================================================
  */
 
@@ -52,59 +46,65 @@ function doPost(e) {
     }
     
     var sheet = ss.getSheetByName(sheetName);
-    
-    // If tab doesn't exist, create it with clean institutional headers
     if (!sheet) {
       sheet = ss.insertSheet(sheetName);
-      
-      // Row 1: Main Column Headers
-      sheet.getRange(1, 1).setValue("Roll No");
-      sheet.getRange(1, 2).setValue("Register No");
-      sheet.getRange(1, 3).setValue("Student Name");
-      sheet.getRange(1, 4).setValue("Present (P)");
-      sheet.getRange(1, 5).setValue("Total Classes");
-      sheet.getRange(1, 6).setValue("Attendance %");
-      
-      // Row 2: Subject & Faculty Info Banner
-      sheet.getRange(2, 1).setValue(secName);
-      sheet.getRange(2, 2).setValue(subjCode || "Course Code");
-      sheet.getRange(2, 3).setValue(subjName);
-      sheet.getRange(2, 4).setValue("Total Attended");
-      sheet.getRange(2, 5).setValue("Conducted");
-      sheet.getRange(2, 6).setValue(data.teacher_name || "Faculty");
-      
-      // Top Left Header Theme (Dark Slate + Blue Accent)
-      sheet.getRange(1, 1, 1, 3)
-        .setFontWeight("bold")
-        .setBackground("#1e293b")
-        .setFontColor("#ffffff")
-        .setHorizontalAlignment("center");
-        
-      sheet.getRange(1, 4, 1, 6)
-        .setFontWeight("bold")
-        .setBackground("#0369a1") // Deep Sky Blue for Summary
-        .setFontColor("#ffffff")
-        .setHorizontalAlignment("center");
-        
-      sheet.getRange(2, 1, 2, 6)
-        .setFontWeight("bold")
-        .setBackground("#f1f5f9")
-        .setFontColor("#334155")
-        .setFontSize(9)
-        .setHorizontalAlignment("center");
-        
-      sheet.setFrozenRows(2);
-      sheet.setFrozenColumns(0); // NO vertical freeze line (allows smooth horizontal scrolling)
-    } else {
-      // Ensure vertical freeze line is completely removed on existing sheet
-      sheet.setFrozenColumns(0);
     }
     
     // --------------------------------------------------------------------------
-    // 2. ROBUST STUDENT ROSTER DEDUPLICATION
+    // 2. ALWAYS ENFORCE PROPER FIXED HEADERS (COLUMNS A TO F)
+    // --------------------------------------------------------------------------
+    // Row 1: Primary Column Headings
+    sheet.getRange(1, 1).setValue("Roll No");
+    sheet.getRange(1, 2).setValue("Register No");
+    sheet.getRange(1, 3).setValue("Student Name");
+    sheet.getRange(1, 4).setValue("Attended (P)");
+    sheet.getRange(1, 5).setValue("Total Classes");
+    sheet.getRange(1, 6).setValue("Attendance %");
+    
+    // Row 2: Context Sub-Headings
+    sheet.getRange(2, 1).setValue(secName);
+    sheet.getRange(2, 2).setValue(subjCode || "Course Code");
+    sheet.getRange(2, 3).setValue(subjName);
+    sheet.getRange(2, 4).setValue(data.teacher_name || "Faculty");
+    sheet.getRange(2, 5).setValue("Conducted");
+    sheet.getRange(2, 6).setValue("Cumulative %");
+    
+    // Styling Row 1 (Headers)
+    sheet.getRange(1, 1, 1, 3)
+      .setFontWeight("bold")
+      .setBackground("#1e293b") // Dark Slate
+      .setFontColor("#ffffff")
+      .setHorizontalAlignment("center");
+      
+    sheet.getRange(1, 4, 1, 6)
+      .setFontWeight("bold")
+      .setBackground("#0369a1") // Deep Blue Summary
+      .setFontColor("#ffffff")
+      .setHorizontalAlignment("center");
+      
+    // Styling Row 2 (Sub-Headers)
+    sheet.getRange(2, 1, 2, 3)
+      .setFontWeight("bold")
+      .setBackground("#f1f5f9")
+      .setFontColor("#334155")
+      .setFontSize(9)
+      .setHorizontalAlignment("center");
+      
+    sheet.getRange(2, 4, 2, 6)
+      .setFontWeight("bold")
+      .setBackground("#e0f2fe")
+      .setFontColor("#0369a1")
+      .setFontSize(9)
+      .setHorizontalAlignment("center");
+      
+    sheet.setFrozenRows(2);
+    sheet.setFrozenColumns(0); // Smooth scrolling with NO freeze line
+    
+    // --------------------------------------------------------------------------
+    // 3. ROBUST STUDENT ROSTER DEDUPLICATION
     // --------------------------------------------------------------------------
     var existingData = sheet.getDataRange().getValues();
-    var studentRowMap = {}; // Key: (register_no OR normalized_roll_no) -> 1-indexed sheet row
+    var studentRowMap = {};
     
     for (var i = 2; i < existingData.length; i++) {
       var existingRoll = String(existingData[i][0]).trim();
@@ -155,28 +155,44 @@ function doPost(e) {
     }
     
     // --------------------------------------------------------------------------
-    // 3. CREATE ATTENDANCE PERIOD COLUMN WITH TOPICS COVERED
+    // 4. FIND OR CREATE PERIOD COLUMN (Starts from Column G / Column 7)
     // --------------------------------------------------------------------------
-    var lastCol = sheet.getLastColumn();
-    var newCol = Math.max(lastCol + 1, 7); // Period columns start from Column G (col 7)
     var periodLabel = data.date + "\n(" + data.period + ")";
     var topics = (data.topics_covered || "").trim();
     
+    var targetCol = 0;
+    var maxCols = sheet.getLastColumn();
+    
+    // Check if this date + period column already exists (from Column G onwards)
+    if (maxCols >= 7 && existingData[0]) {
+      for (var c = 6; c < maxCols; c++) {
+        if (String(existingData[0][c]).replace(/\s+/g, '') === periodLabel.replace(/\s+/g, '')) {
+          targetCol = c + 1; // 1-indexed column
+          break;
+        }
+      }
+    }
+    
+    // If not found, append a new period column
+    if (targetCol === 0) {
+      targetCol = Math.max(maxCols + 1, 7);
+    }
+    
     // Row 1: Date & Period Header
-    var headerCell = sheet.getRange(1, newCol);
+    var headerCell = sheet.getRange(1, targetCol);
     headerCell.setValue(periodLabel)
       .setFontWeight("bold")
-      .setBackground("#2563eb")
+      .setBackground("#2563eb") // Royal Blue
       .setFontColor("#ffffff")
       .setHorizontalAlignment("center")
       .setWrap(true);
       
     // Row 2: Topics Covered Sub-Header
-    var topicCell = sheet.getRange(2, newCol);
+    var topicCell = sheet.getRange(2, targetCol);
     topicCell.setValue(topics ? "📖 " + topics : "—")
       .setFontSize(9)
       .setFontColor("#1e293b")
-      .setBackground("#e0e7ff")
+      .setBackground("#e0e7ff") // Soft Lavender
       .setHorizontalAlignment("center")
       .setWrap(true);
       
@@ -189,7 +205,7 @@ function doPost(e) {
     headerCell.setNote(noteText);
     
     // --------------------------------------------------------------------------
-    // 4. MARK PRESENT (P) / ABSENT (A)
+    // 5. MARK PRESENT (P) / ABSENT (A)
     // --------------------------------------------------------------------------
     records.forEach(function(rec) {
       var rNo = String(rec.roll_no || "").trim();
@@ -201,7 +217,7 @@ function doPost(e) {
                       (rNo && studentRowMap["rawroll_" + rNo]);
                       
       if (targetRow) {
-        var cell = sheet.getRange(targetRow, newCol);
+        var cell = sheet.getRange(targetRow, targetCol);
         var isPresent = (String(rec.status).toUpperCase() === "PRESENT");
         
         cell.setValue(isPresent ? "P" : "A");
@@ -219,24 +235,24 @@ function doPost(e) {
     });
     
     // --------------------------------------------------------------------------
-    // 5. UPDATE ATTENDANCE TOTALS & PERCENTAGE (%) FORMULAS FOR EACH STUDENT
+    // 6. UPDATE ATTENDANCE TOTALS & PERCENTAGE FORMULAS (COLUMNS D, E, F)
     // --------------------------------------------------------------------------
     var totalStudentRows = sheet.getLastRow();
     if (totalStudentRows >= 3) {
       for (var r = 3; r <= totalStudentRows; r++) {
-        // Col D (Present Count): count of "P" across all period columns (Col G onwards)
+        // Col D: Attended Count (=COUNTIF(G3:ZZ3, "P"))
         sheet.getRange(r, 4).setFormula('=COUNTIF(G' + r + ':ZZ' + r + ', "P")')
           .setHorizontalAlignment("center")
           .setFontWeight("bold")
           .setFontColor("#15803d");
           
-        // Col E (Total Conducted): count of "P" + "A"
+        // Col E: Total Conducted (=COUNTIF(G3:ZZ3, "P") + COUNTIF(G3:ZZ3, "A"))
         sheet.getRange(r, 5).setFormula('=(COUNTIF(G' + r + ':ZZ' + r + ', "P") + COUNTIF(G' + r + ':ZZ' + r + ', "A"))')
           .setHorizontalAlignment("center")
           .setFontWeight("bold")
           .setFontColor("#334155");
           
-        // Col F (Attendance %): Present / Total formatted as %
+        // Col F: Attendance % (=IF(E3>0, D3/E3, 1))
         sheet.getRange(r, 6).setFormula('=IF(E' + r + '>0, D' + r + '/E' + r + ', 1)')
           .setHorizontalAlignment("center")
           .setFontWeight("bold")
@@ -244,35 +260,27 @@ function doPost(e) {
       }
     }
     
+    // Set Clean Standard Column Widths
     sheet.setColumnWidth(1, 65);  // Roll No
     sheet.setColumnWidth(2, 120); // Register No
-    sheet.setColumnWidth(3, 170); // Student Name
-    sheet.setColumnWidth(4, 90);  // Present Count
+    sheet.setColumnWidth(3, 180); // Student Name
+    sheet.setColumnWidth(4, 95);  // Attended (P)
     sheet.setColumnWidth(5, 95);  // Total Classes
-    sheet.setColumnWidth(6, 100); // Attendance %
-    sheet.setColumnWidth(newCol, 125); // Period Column
+    sheet.setColumnWidth(6, 105); // Attendance %
+    sheet.setColumnWidth(targetCol, 125); // Period Column
     sheet.setRowHeight(1, 38);
     sheet.setRowHeight(2, 38);
     
     // --------------------------------------------------------------------------
-    // 5. SYNCHRONIZE WITH "Topics & Syllabus Log" AUDIT TAB
+    // 7. SYNCHRONIZE WITH "Topics & Syllabus Log" AUDIT TAB
     // --------------------------------------------------------------------------
     var topicsSheet = ss.getSheetByName("Topics & Syllabus Log");
     if (!topicsSheet) {
       topicsSheet = ss.insertSheet("Topics & Syllabus Log");
       topicsSheet.appendRow([
-        "Timestamp",
-        "Attendance Date",
-        "Period",
-        "Subject Sheet",
-        "Subject Code",
-        "Subject Name",
-        "Faculty Member",
-        "Topics Covered in Period",
-        "Total Enrolled",
-        "Present Count",
-        "Absent Count",
-        "Attendance %"
+        "Timestamp", "Attendance Date", "Period", "Section & Subject Sheet",
+        "Subject Code", "Subject Name", "Faculty Member", "Topics Covered in Period",
+        "Total Enrolled", "Present Count", "Absent Count", "Attendance %"
       ]);
       topicsSheet.getRange(1, 1, 1, 12)
         .setFontWeight("bold")
@@ -288,18 +296,10 @@ function doPost(e) {
     var attPct = totalStd > 0 ? ((presCount / totalStd) * 100).toFixed(2) + "%" : "100.00%";
     
     topicsSheet.appendRow([
-      new Date(),
-      data.date,
-      data.period,
-      sheetName,
-      subjCode || "—",
-      subjName || "—",
-      data.teacher_name || "—",
+      new Date(), data.date, data.period, sheetName,
+      subjCode || "—", subjName || "—", data.teacher_name || "—",
       topics || "Standard Curriculum / Lab Session",
-      totalStd,
-      presCount,
-      absCount,
-      attPct
+      totalStd, presCount, absCount, attPct
     ]);
     
     var lastLogRow = topicsSheet.getLastRow();
@@ -310,7 +310,7 @@ function doPost(e) {
     return ContentService.createTextOutput(JSON.stringify({
       status: "success",
       sheet_name: sheetName,
-      message: "Attendance successfully recorded in " + sheetName + " with Topics Covered",
+      message: "Attendance recorded in " + sheetName,
       topics_covered: topics,
       total: totalStd,
       present: presCount,
@@ -325,9 +325,53 @@ function doPost(e) {
   }
 }
 
+/**
+ * Utility Function: Run this function once from the Apps Script editor to clean and fix all headers across every sheet tab!
+ */
+function fixAllSheetHeaders() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheets = ss.getSheets();
+  
+  sheets.forEach(function(sheet) {
+    var name = sheet.getName();
+    if (name === "Topics & Syllabus Log") return;
+    
+    sheet.getRange(1, 1).setValue("Roll No");
+    sheet.getRange(1, 2).setValue("Register No");
+    sheet.getRange(1, 3).setValue("Student Name");
+    sheet.getRange(1, 4).setValue("Attended (P)");
+    sheet.getRange(1, 5).setValue("Total Classes");
+    sheet.getRange(1, 6).setValue("Attendance %");
+    
+    sheet.getRange(1, 1, 1, 3)
+      .setFontWeight("bold")
+      .setBackground("#1e293b")
+      .setFontColor("#ffffff")
+      .setHorizontalAlignment("center");
+      
+    sheet.getRange(1, 4, 1, 6)
+      .setFontWeight("bold")
+      .setBackground("#0369a1")
+      .setFontColor("#ffffff")
+      .setHorizontalAlignment("center");
+      
+    sheet.setFrozenRows(2);
+    sheet.setFrozenColumns(0);
+    
+    var lastRow = sheet.getLastRow();
+    if (lastRow >= 3) {
+      for (var r = 3; r <= lastRow; r++) {
+        sheet.getRange(r, 4).setFormula('=COUNTIF(G' + r + ':ZZ' + r + ', "P")');
+        sheet.getRange(r, 5).setFormula('=(COUNTIF(G' + r + ':ZZ' + r + ', "P") + COUNTIF(G' + r + ':ZZ' + r + ', "A"))');
+        sheet.getRange(r, 6).setFormula('=IF(E' + r + '>0, D' + r + '/E' + r + ', 1)').setNumberFormat("0.0%");
+      }
+    }
+  });
+}
+
 function doGet(e) {
   return ContentService.createTextOutput(JSON.stringify({
     status: "active",
-    message: "Google Sheet Subject-Wise Attendance & Topics Covered Webhook is active."
+    message: "Google Sheet Section-Specific Subject-Wise Webhook is running."
   })).setMimeType(ContentService.MimeType.JSON);
 }
