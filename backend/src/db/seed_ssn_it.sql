@@ -224,5 +224,19 @@ VALUES
   ('3122255002138', '138', 'Vishwa R', 'vishwa2510808@ssn.edu.in', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', '22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
   ('3122255002139', '139', 'Yanush Jayakumar', 'yanush2510067@ssn.edu.in', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', '22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
   ('3122255002140', '140', 'Yashwanth A', 'yashwanth2510445@ssn.edu.in', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', '22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
-  ('3122255002141', '141', 'Yazhini K', 'yazhini2510809@ssn.edu.in', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', '22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb')
+  ('3122255002141', '141', 'Yazhini K', 'yazhini2510809@ssn.edu.in', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', '22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
+  -- Lateral Entry Students (Section A)
+  ('3122255002301', '301', 'Aadhish Kumar S', 'aadhishkumar2512046@ssn.edu.in', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', '11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+  ('3122255002302', '302', 'Balaji N', 'balaji2512008@ssn.edu.in', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', '11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+  ('3122255002303', '303', 'Harish R S', 'harish2512065@ssn.edu.in', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', '11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+  ('3122255002304', '304', 'Jeeva R S', 'jeeva2512007@ssn.edu.in', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', '11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+  ('3122255002305', '305', 'Lokesh Prasath B D', 'lokeshprasath2512054@ssn.edu.in', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', '11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+  ('3122255002312', '312', 'Shanthosh Mani K', 'shanthoshmani2512045@ssn.edu.in', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', '11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+  -- Lateral Entry Students (Section B)
+  ('3122255002306', '306', 'Mirudula Devi S', 'miruduladevi2512047@ssn.edu.in', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', '22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
+  ('3122255002307', '307', 'Mohammad Ayman Siddique', 'aymansiddique2512004@ssn.edu.in', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', '22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
+  ('3122255002308', '308', 'Prem K', 'prem2512035@ssn.edu.in', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', '22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
+  ('3122255002309', '309', 'Reehan S', 'reehan2512016@ssn.edu.in', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', '22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
+  ('3122255002310', '310', 'Sanjay N', 'sanjay2512069@ssn.edu.in', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', '22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
+  ('3122255002311', '311', 'Satheesh Kumar N', 'satheeshkumar2512057@ssn.edu.in', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', '22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb')
 ON CONFLICT (register_no) DO UPDATE SET full_name = EXCLUDED.full_name, roll_no = EXCLUDED.roll_no;
