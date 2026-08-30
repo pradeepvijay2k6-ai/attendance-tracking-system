@@ -38,7 +38,6 @@ export default function DepartmentTicker({ refreshKey = 0 }) {
   return (
     <div className="dept-ticker-container">
       <div className="dept-ticker-badge">
-        <span className="ticker-icon">📢</span>
         <span className="ticker-label">IT Updates</span>
       </div>
       <div className="dept-ticker-track-wrapper">

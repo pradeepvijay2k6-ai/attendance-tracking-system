@@ -714,7 +714,7 @@ export default function AdminDashboard() {
           Attendance Logs ({sessionsList.length})
         </button>
         <button className={`admin-tab-btn ${activeTab === 'announcements' ? 'active' : ''}`} onClick={() => setActiveTab('announcements')}>
-          📢 Announcements ({announcementsList.length})
+          Announcements ({announcementsList.length})
         </button>
         <button className={`admin-tab-btn danger ${activeTab === 'reset' ? 'active' : ''}`} onClick={() => setActiveTab('reset')}>
           System Reset
@@ -773,8 +773,8 @@ export default function AdminDashboard() {
                   <button className="terminal-btn secondary" style={{ background: '#059669', color: '#ffffff' }} onClick={() => handleOpenOverrideModal()}>
                     ✏️ Update / Override Attendance
                   </button>
-                  <button className="terminal-btn secondary" onClick={() => { setAnnouncementForm({ title: '', message: '' }); setEditingAnnouncement(null); setShowAnnouncementModal(true); }}>
-                    📢 Post IT Update
+                  <button className="terminal-btn secondary" onClick={() => { setAnnouncementForm({ title: 'IT Department', message: '' }); setEditingAnnouncement(null); setShowAnnouncementModal(true); }}>
+                    + Post IT Update
                   </button>
                   <button className="terminal-btn secondary" onClick={openAddTeacherModal}>
                     + Add Faculty
@@ -1379,7 +1379,7 @@ export default function AdminDashboard() {
           <div className="admin-section-card">
             <div className="section-toolbar">
               <div>
-                <h2>📢 IT Department Updates & Scrolling Announcements</h2>
+                <h2>IT Department Updates & Scrolling Announcements</h2>
                 <p style={{ color: '#64748b', fontSize: '0.85rem', marginTop: '2px' }}>
                   Notices and announcements posted here scroll in real-time on student, teacher, and admin dashboards.
                 </p>
@@ -1417,7 +1417,7 @@ export default function AdminDashboard() {
                     announcementsList.map((ann) => (
                       <tr key={ann.id}>
                         <td>
-                          <strong style={{ color: '#0284c7' }}>📢 {ann.title}</strong>
+                          <strong style={{ color: '#0284c7' }}>{ann.title}</strong>
                         </td>
                         <td style={{ color: '#334155', maxWidth: '400px' }}>
                           {ann.message}
@@ -2001,7 +2001,7 @@ export default function AdminDashboard() {
           <div className="modal-content" style={{ maxWidth: '480px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a' }}>
-                {editingAnnouncement ? 'Edit IT Department Update' : '📢 Post IT Department Update'}
+                {editingAnnouncement ? 'Edit IT Department Update' : 'Post IT Department Update'}
               </h3>
               <button onClick={() => setShowAnnouncementModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
             </div>
