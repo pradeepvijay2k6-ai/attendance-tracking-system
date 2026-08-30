@@ -29,13 +29,12 @@ function doPost(e) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     
     // --------------------------------------------------------------------------
-    // 1. SECTION + SUBJECT-WISE SHEET NAME (e.g. "IT A - UIT3361 Java", "IT B - UIT3301 DBMS")
+    // 1. SECTION + SUBJECT-WISE SHEET NAME (e.g. "IT A - UIT3361 - OOP Java")
     // --------------------------------------------------------------------------
     var secName = (data.section_name || "IT A").trim();
     var subjCode = (data.subject_code || "").trim();
     var subjName = (data.subject_name || "General").trim();
     
-    // Short clean subject title
     var shortTitle = subjName
       .replace("Object-Oriented Programming Using Java", "OOP Java")
       .replace("Mathematical Foundations for Computing Technology", "Maths")
@@ -54,37 +53,51 @@ function doPost(e) {
     
     var sheet = ss.getSheetByName(sheetName);
     
-    // If tab doesn't exist, create it with beautiful institutional headers
+    // If tab doesn't exist, create it with clean institutional headers
     if (!sheet) {
       sheet = ss.insertSheet(sheetName);
       
-      // Row 1: Main Headers
+      // Row 1: Main Column Headers
       sheet.getRange(1, 1).setValue("Roll No");
       sheet.getRange(1, 2).setValue("Register No");
       sheet.getRange(1, 3).setValue("Student Name");
-      sheet.getRange(1, 4).setValue("Section");
+      sheet.getRange(1, 4).setValue("Present (P)");
+      sheet.getRange(1, 5).setValue("Total Classes");
+      sheet.getRange(1, 6).setValue("Attendance %");
       
-      // Row 2: Subject Info Sub-Header
+      // Row 2: Subject & Faculty Info Banner
       sheet.getRange(2, 1).setValue(secName);
       sheet.getRange(2, 2).setValue(subjCode || "Course Code");
       sheet.getRange(2, 3).setValue(subjName);
-      sheet.getRange(2, 4).setValue(data.teacher_name || "Faculty");
+      sheet.getRange(2, 4).setValue("Total Attended");
+      sheet.getRange(2, 5).setValue("Conducted");
+      sheet.getRange(2, 6).setValue(data.teacher_name || "Faculty");
       
-      // Style Top Left Banner
-      sheet.getRange(1, 1, 1, 4)
+      // Top Left Header Theme (Dark Slate + Blue Accent)
+      sheet.getRange(1, 1, 1, 3)
         .setFontWeight("bold")
         .setBackground("#1e293b")
         .setFontColor("#ffffff")
         .setHorizontalAlignment("center");
         
-      sheet.getRange(2, 1, 2, 4)
+      sheet.getRange(1, 4, 1, 6)
+        .setFontWeight("bold")
+        .setBackground("#0369a1") // Deep Sky Blue for Summary
+        .setFontColor("#ffffff")
+        .setHorizontalAlignment("center");
+        
+      sheet.getRange(2, 1, 2, 6)
         .setFontWeight("bold")
         .setBackground("#f1f5f9")
         .setFontColor("#334155")
-        .setFontSize(9);
+        .setFontSize(9)
+        .setHorizontalAlignment("center");
         
       sheet.setFrozenRows(2);
-      sheet.setFrozenColumns(3);
+      sheet.setFrozenColumns(0); // NO vertical freeze line (allows smooth horizontal scrolling)
+    } else {
+      // Ensure vertical freeze line is completely removed on existing sheet
+      sheet.setFrozenColumns(0);
     }
     
     // --------------------------------------------------------------------------
@@ -98,9 +111,7 @@ function doPost(e) {
       var existingReg = String(existingData[i][1]).trim();
       var rowNum = i + 1;
       
-      if (existingReg) {
-        studentRowMap["reg_" + existingReg] = rowNum;
-      }
+      if (existingReg) studentRowMap["reg_" + existingReg] = rowNum;
       if (existingRoll) {
         var cleanRoll = existingRoll.replace(/^0+/, "") || "0";
         studentRowMap["roll_" + cleanRoll] = rowNum;
@@ -108,7 +119,6 @@ function doPost(e) {
       }
     }
     
-    // Insert any missing students into the roster without creating duplicates
     var records = data.records || [];
     records.forEach(function(rec) {
       var rNo = String(rec.roll_no || "").trim();
@@ -120,9 +130,8 @@ function doPost(e) {
                    (rNo && studentRowMap["rawroll_" + rNo]);
       
       if (!hasRow && (rNo || regNo)) {
-        sheet.appendRow([rec.roll_no, rec.register_no, rec.full_name, rec.email || ""]);
+        sheet.appendRow([rec.roll_no, rec.register_no, rec.full_name, 0, 0, "100.0%"]);
         var newRowIdx = sheet.getLastRow();
-        
         if (regNo) studentRowMap["reg_" + regNo] = newRowIdx;
         if (rNo) {
           studentRowMap["roll_" + cleanR] = newRowIdx;
@@ -148,7 +157,8 @@ function doPost(e) {
     // --------------------------------------------------------------------------
     // 3. CREATE ATTENDANCE PERIOD COLUMN WITH TOPICS COVERED
     // --------------------------------------------------------------------------
-    var newCol = sheet.getLastColumn() + 1;
+    var lastCol = sheet.getLastColumn();
+    var newCol = Math.max(lastCol + 1, 7); // Period columns start from Column G (col 7)
     var periodLabel = data.date + "\n(" + data.period + ")";
     var topics = (data.topics_covered || "").trim();
     
@@ -170,16 +180,16 @@ function doPost(e) {
       .setHorizontalAlignment("center")
       .setWrap(true);
       
-    // Detailed Note on Header Cell
     var noteText = "Date: " + data.date + " (" + data.period + ")" +
       "\nSubject: " + subjName + " (" + subjCode + ")" +
+      "\nSection: " + secName +
       "\nFaculty: " + (data.teacher_name || "Faculty") +
       "\nTopics Covered: " + (topics || "Standard Curriculum") +
       "\nTotal: " + data.total_students + " | Present: " + data.present_count + " | Absent: " + data.absent_count;
     headerCell.setNote(noteText);
     
     // --------------------------------------------------------------------------
-    // 4. MARK PRESENT (P) / ABSENT (A) WITH CLEAN COLOR PALETTE
+    // 4. MARK PRESENT (P) / ABSENT (A)
     // --------------------------------------------------------------------------
     records.forEach(function(rec) {
       var rNo = String(rec.roll_no || "").trim();
@@ -199,17 +209,48 @@ function doPost(e) {
         cell.setFontWeight("bold");
         
         if (isPresent) {
-          cell.setBackground("#dcfce7"); // Soft emerald green
+          cell.setBackground("#dcfce7"); // Soft green
           cell.setFontColor("#15803d");
         } else {
-          cell.setBackground("#fee2e2"); // Soft pastel red
+          cell.setBackground("#fee2e2"); // Soft red
           cell.setFontColor("#b91c1c");
         }
       }
     });
     
-    // Set column width for optimal readability
-    sheet.setColumnWidth(newCol, 120);
+    // --------------------------------------------------------------------------
+    // 5. UPDATE ATTENDANCE TOTALS & PERCENTAGE (%) FORMULAS FOR EACH STUDENT
+    // --------------------------------------------------------------------------
+    var totalStudentRows = sheet.getLastRow();
+    if (totalStudentRows >= 3) {
+      for (var r = 3; r <= totalStudentRows; r++) {
+        // Col D (Present Count): count of "P" across all period columns (Col G onwards)
+        sheet.getRange(r, 4).setFormula('=COUNTIF(G' + r + ':ZZ' + r + ', "P")')
+          .setHorizontalAlignment("center")
+          .setFontWeight("bold")
+          .setFontColor("#15803d");
+          
+        // Col E (Total Conducted): count of "P" + "A"
+        sheet.getRange(r, 5).setFormula('=(COUNTIF(G' + r + ':ZZ' + r + ', "P") + COUNTIF(G' + r + ':ZZ' + r + ', "A"))')
+          .setHorizontalAlignment("center")
+          .setFontWeight("bold")
+          .setFontColor("#334155");
+          
+        // Col F (Attendance %): Present / Total formatted as %
+        sheet.getRange(r, 6).setFormula('=IF(E' + r + '>0, D' + r + '/E' + r + ', 1)')
+          .setHorizontalAlignment("center")
+          .setFontWeight("bold")
+          .setNumberFormat("0.0%");
+      }
+    }
+    
+    sheet.setColumnWidth(1, 65);  // Roll No
+    sheet.setColumnWidth(2, 120); // Register No
+    sheet.setColumnWidth(3, 170); // Student Name
+    sheet.setColumnWidth(4, 90);  // Present Count
+    sheet.setColumnWidth(5, 95);  // Total Classes
+    sheet.setColumnWidth(6, 100); // Attendance %
+    sheet.setColumnWidth(newCol, 125); // Period Column
     sheet.setRowHeight(1, 38);
     sheet.setRowHeight(2, 38);
     
