@@ -269,24 +269,13 @@ export async function submitAttendanceApi(payload) {
       await fetch(GOOGLE_SHEET_WEBHOOK_URL, {
         method: 'POST',
         mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(webhookPayload)
       });
       sheetSynced = true;
       console.log('Google Sheets sync triggered successfully for session:', rpcData?.session_id);
     } catch (sheetErr) {
       console.warn('Direct Google Sheet sync notice:', sheetErr.message);
-    }
-
-    if (rpcData?.session_id && payload.topics_covered) {
-      try {
-        await supabase
-          .from('attendance_sessions')
-          .update({ remarks: payload.topics_covered })
-          .eq('id', rpcData.session_id);
-      } catch (remErr) {
-        console.warn('Could not update session remarks:', remErr.message);
-      }
     }
 
     return {
@@ -731,7 +720,6 @@ export async function getAdminSessionsApi() {
       present_count,
       absent_count,
       status,
-      remarks,
       timetables (
         classes (name),
         sections (name),
@@ -751,8 +739,6 @@ export async function getAdminSessionsApi() {
     present_count: s.present_count,
     absent_count: s.absent_count,
     status: s.status,
-    remarks: s.remarks,
-    topics_covered: s.remarks,
     classes: s.timetables?.classes,
     sections: s.timetables?.sections,
     subjects: s.timetables?.subjects,

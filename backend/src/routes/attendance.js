@@ -68,26 +68,12 @@ router.post('/submit', async (req, res) => {
     }
 
     // -----------------------------
-    // Save Topics Covered & Sync
-    // -----------------------------
-    if (data?.session_id && req.body.topics_covered) {
-      try {
-        await supabase
-          .from('attendance_sessions')
-          .update({ remarks: req.body.topics_covered })
-          .eq('id', data.session_id);
-      } catch (remErr) {
-        console.warn('Could not update session remarks:', remErr.message);
-      }
-    }
-
-    // -----------------------------
     // Automatic Google Sheets Sync
     // -----------------------------
     let googleSheetStatus = null;
     if (data?.session_id) {
       try {
-        googleSheetStatus = await syncSessionToGoogleSheet(data.session_id);
+        googleSheetStatus = await syncSessionToGoogleSheet(data.session_id, req.body.topics_covered);
       } catch (sheetErr) {
         console.warn('Google Sheets sync warning:', sheetErr.message);
         googleSheetStatus = { synced: false, error: sheetErr.message };

@@ -4,7 +4,7 @@ const supabase = require('../config/supabase');
  * Syncs an attendance session and its student records to the Department Google Sheet
  * @param {string} sessionId UUID of the attendance session
  */
-async function syncSessionToGoogleSheet(sessionId) {
+async function syncSessionToGoogleSheet(sessionId, topicsCovered = '') {
   try {
     const webhookUrl = process.env.GOOGLE_SHEET_WEBHOOK_URL;
 
@@ -20,7 +20,6 @@ async function syncSessionToGoogleSheet(sessionId) {
         present_count,
         absent_count,
         status,
-        remarks,
         classes (id, name, code),
         sections (id, name),
         subjects (id, name, code),
@@ -87,7 +86,7 @@ async function syncSessionToGoogleSheet(sessionId) {
       section_name: sectionName,
       teacher_name: session.profiles?.full_name || 'Faculty Member',
       teacher_email: session.profiles?.email || '',
-      topics_covered: session.remarks || '',
+      topics_covered: topicsCovered || '',
       total_students: formattedRecords.length || session.total_students,
       present_count: session.present_count,
       absent_count: session.absent_count,
