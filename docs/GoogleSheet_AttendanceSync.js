@@ -29,17 +29,27 @@ function doPost(e) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     
     // --------------------------------------------------------------------------
-    // 1. SUBJECT-WISE SHEET NAME (e.g., "IT A - UIT3361" or "IT A - Database Tech")
+    // 1. SECTION + SUBJECT-WISE SHEET NAME (e.g. "IT A - UIT3361 Java", "IT B - UIT3301 DBMS")
     // --------------------------------------------------------------------------
     var secName = (data.section_name || "IT A").trim();
     var subjCode = (data.subject_code || "").trim();
     var subjName = (data.subject_name || "General").trim();
     
-    // Clean tab title e.g. "IT A - UIT3361" (falls back to short subject name if no code)
-    var tabIdentifier = subjCode ? subjCode : subjName.substring(0, 18);
-    var sheetName = secName + " - " + tabIdentifier;
-    if (sheetName.length > 30) {
-      sheetName = sheetName.substring(0, 30);
+    // Short clean subject title
+    var shortTitle = subjName
+      .replace("Object-Oriented Programming Using Java", "OOP Java")
+      .replace("Mathematical Foundations for Computing Technology", "Maths")
+      .replace("Principles of Software Engineering and Practices", "Software Engg")
+      .replace("Universal Human Values 2: Understanding Harmony", "UHV")
+      .replace("Design Thinking, Innovation and Entrepreneurship", "Design Thinking")
+      .replace("Digital Systems and Microprocessors Design", "Digital Systems")
+      .replace("Introduction to Digital Communication", "Dig Comm")
+      .replace("Environmental Science and Engineering", "EVS");
+      
+    var tabLabel = subjCode ? (subjCode + " - " + shortTitle.substring(0, 14)) : shortTitle.substring(0, 20);
+    var sheetName = secName + " - " + tabLabel;
+    if (sheetName.length > 35) {
+      sheetName = sheetName.substring(0, 35);
     }
     
     var sheet = ss.getSheetByName(sheetName);
@@ -52,11 +62,11 @@ function doPost(e) {
       sheet.getRange(1, 1).setValue("Roll No");
       sheet.getRange(1, 2).setValue("Register No");
       sheet.getRange(1, 3).setValue("Student Name");
-      sheet.getRange(1, 4).setValue("Email");
+      sheet.getRange(1, 4).setValue("Section");
       
-      // Row 2: Sub-Header / Field description
-      sheet.getRange(2, 1).setValue("Subject:");
-      sheet.getRange(2, 2).setValue(subjCode || subjName);
+      // Row 2: Subject Info Sub-Header
+      sheet.getRange(2, 1).setValue(secName);
+      sheet.getRange(2, 2).setValue(subjCode || "Course Code");
       sheet.getRange(2, 3).setValue(subjName);
       sheet.getRange(2, 4).setValue(data.teacher_name || "Faculty");
       
