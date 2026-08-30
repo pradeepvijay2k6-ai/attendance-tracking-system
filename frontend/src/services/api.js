@@ -799,6 +799,123 @@ export async function scheduleExtraClassApi(data) {
   return response.data;
 }
 
+export async function cancelSwapRequestApi(swapId) {
+  try {
+    const response = await apiClient.delete(`/swaps/${swapId}`);
+    return response.data;
+  } catch (err) {
+    console.warn('Backend cancel swap fallback:', err.message);
+    const { error } = await supabase.from('period_swaps').delete().eq('id', swapId);
+    if (error) throw error;
+    return { success: true, message: 'Substitution request cancelled' };
+  }
+}
+
+// ==============================================================================
+// TEACHER <-> SUBJECT REASSIGNMENT API (PRIORITY 1)
+// ==============================================================================
+export async function reassignSubjectTeacherApi({ subject_id, new_teacher_id, class_id, section_id }) {
+  try {
+    const response = await apiClient.put('/admin/reassign-subject-teacher', {
+      subject_id,
+      new_teacher_id,
+      class_id,
+      section_id
+    });
+    return response.data;
+  } catch (err) {
+    console.warn('Backend reassign teacher fallback to Supabase:', err.message);
+    let query = supabase
+      .from('timetables')
+      .update({ teacher_id: new_teacher_id })
+      .eq('subject_id', subject_id);
+
+    if (class_id) query = query.eq('class_id', class_id);
+    if (section_id) query = query.eq('section_id', section_id);
+
+    const { data, error } = await query.select();
+    if (error) throw error;
+    return {
+      success: true,
+      message: 'Teacher reassigned to subject successfully',
+      updated_slots_count: data?.length || 0
+    };
+  }
+}
+
+// ==============================================================================
+// ANNOUNCEMENTS & IT DEPARTMENT UPDATES APIS
+// ==============================================================================
+export async function getAnnouncementsApi() {
+  try {
+    const response = await apiClient.get('/admin/announcements');
+    if (response.data?.announcements) return response.data;
+  } catch (err) {
+    console.warn('Backend announcements fallback:', err.message);
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('announcements')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('Supabase announcements fallback notice:', error.message);
+      return { success: true, announcements: [] };
+    }
+    return { success: true, announcements: data || [] };
+  } catch (err) {
+    return { success: true, announcements: [] };
+  }
+}
+
+export async function createAnnouncementApi(announcementData) {
+  try {
+    const response = await apiClient.post('/admin/announcements', announcementData);
+    return response.data;
+  } catch (err) {
+    console.warn('Backend create announcement fallback:', err.message);
+    const { data, error } = await supabase
+      .from('announcements')
+      .insert([announcementData])
+      .select()
+      .single();
+    if (error) throw error;
+    return { success: true, message: 'Announcement published', announcement: data };
+  }
+}
+
+export async function updateAnnouncementApi(id, announcementData) {
+  try {
+    const response = await apiClient.put(`/admin/announcements/${id}`, announcementData);
+    return response.data;
+  } catch (err) {
+    console.warn('Backend update announcement fallback:', err.message);
+    const { data, error } = await supabase
+      .from('announcements')
+      .update(announcementData)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return { success: true, message: 'Announcement updated', announcement: data };
+  }
+}
+
+export async function deleteAnnouncementApi(id) {
+  try {
+    const response = await apiClient.delete(`/admin/announcements/${id}`);
+    return response.data;
+  } catch (err) {
+    console.warn('Backend delete announcement fallback:', err.message);
+    const { error } = await supabase.from('announcements').delete().eq('id', id);
+    if (error) throw error;
+    return { success: true, message: 'Announcement removed' };
+  }
+}
+
+
 // ==============================================================================
 // ADMIN ON-DEMAND ATTENDANCE OVERRIDE API (ANY STUDENT, ANY DAY, ANY TIME)
 // ==============================================================================
@@ -1060,7 +1177,7 @@ export async function getStudentTimetableApi() {
       if (!sid) return;
       if (!subjectStats[sid]) subjectStats[sid] = { total: 0, attended: 0 };
       subjectStats[sid].total++;
-      if (r.status === 'present') subjectStats[sid].attended++;
+      if (r.status === 'present' || r.status === 'od') subjectStats[sid].attended++;
     });
 
     const DAY_NAMES = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -1069,19 +1186,28 @@ export async function getStudentTimetableApi() {
       const subId = slot.subjects?.id;
       if (!subId || subjectMap[subId]) return;
       const s = subjectStats[subId] || { total: 0, attended: 0 };
-      const pct = s.total > 0 ? parseFloat(((s.attended / s.total) * 100).toFixed(1)) : 100.0;
+      const pct = s.total > 0 ? parseFloat(((s.attended / s.total) * 100).toFixed(2)) : 100.0;
+      
+      let statusCategory = 'SAFE';
+      if (s.total > 0) {
+        if (pct < 65.0) statusCategory = 'CRITICAL';
+        else if (pct < 75.0) statusCategory = 'WARNING';
+      }
+
       subjectMap[subId] = {
         subject_id: subId,
         subject_name: slot.subjects?.name,
         subject_code: slot.subjects?.code,
-        teacher_name: slot.profiles?.full_name,
+        teacher_name: slot.profiles?.full_name || 'Assigned Faculty',
         teacher_email: slot.profiles?.email,
         class_name: slot.classes?.name,
         section_name: slot.sections?.name,
         total_conducted: s.total,
         total_attended: s.attended,
         attendance_percentage: pct,
-        is_shortage: pct < 75.0 && s.total > 0
+        attendance_status: statusCategory, // 'SAFE' | 'WARNING' | 'CRITICAL'
+        is_shortage: pct < 75.0 && s.total > 0,
+        is_critical: pct < 65.0 && s.total > 0
       };
     });
 

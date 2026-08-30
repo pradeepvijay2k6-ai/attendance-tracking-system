@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/useAuth';
+import DepartmentTicker from '../components/DepartmentTicker';
 import { getExtraClassesApi, getStudentTimetableApi } from '../services/api';
 
 const DAY_ABBR = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun' };
@@ -46,13 +47,27 @@ export default function StudentDashboard() {
     load();
   }, []);
 
-  // Aggregate totals across all subjects
+  // Aggregate totals across all subjects (Features 2, 3, 4)
   const totalConducted = subjects.reduce((sum, s) => sum + (s.total_conducted || 0), 0);
   const totalAttended  = subjects.reduce((sum, s) => sum + (s.total_attended  || 0), 0);
   const overallPct     = totalConducted > 0
-    ? parseFloat(((totalAttended / totalConducted) * 100).toFixed(1))
+    ? parseFloat(((totalAttended / totalConducted) * 100).toFixed(2))
     : 100.0;
-  const isShortage     = overallPct < 75.0 && totalConducted > 0;
+
+  // Status Category System (Feature 4)
+  let overallCategory = 'SAFE';
+  if (totalConducted > 0) {
+    if (overallPct < 65.0) overallCategory = 'CRITICAL';
+    else if (overallPct < 75.0) overallCategory = 'WARNING';
+  }
+
+  const overallNeeded = overallCategory !== 'SAFE'
+    ? Math.ceil((0.75 * totalConducted - totalAttended) / (1 - 0.75))
+    : 0;
+
+  const overallMissable = overallCategory === 'SAFE' && totalConducted > 0
+    ? Math.floor((totalAttended - 0.75 * totalConducted) / 0.75)
+    : 0;
 
   const handleRegSubmit = (e) => {
     e.preventDefault();
@@ -93,75 +108,137 @@ export default function StudentDashboard() {
       </header>
 
       <main className="dashboard-content">
+        {/* ── IT Department Updates Scrolling Ticker (Feature 7) ───────────────── */}
+        <DepartmentTicker />
+
         {/* ── Welcome Banner ───────────────────────────────────────────────── */}
         <div className="welcome-banner">
-          <h3>Welcome, {studentInfo?.full_name || displayName}</h3>
-          <p>Track your subject-wise attendance percentage, scheduled classes, and exam eligibility in real-time.</p>
-          {studentInfo && (
-            <p style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '4px' }}>
-              Roll No: <strong>{studentInfo.roll_no}</strong> &nbsp;|&nbsp;
-              Reg No: <strong>{studentInfo.register_no}</strong>
-            </p>
-          )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <h3>Welcome, {studentInfo?.full_name || displayName}</h3>
+              <p>Track your subject-wise attendance numbers, percentages, and exam eligibility in real-time.</p>
+              {studentInfo && (
+                <p style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '4px' }}>
+                  Roll No: <strong>{studentInfo.roll_no}</strong> &nbsp;|&nbsp;
+                  Reg No: <strong>{studentInfo.register_no}</strong>
+                </p>
+              )}
+            </div>
+            {!loading && totalConducted > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                <span className={`status-badge status-${overallCategory.toLowerCase()}`} style={{ fontSize: '0.9rem', padding: '6px 14px' }}>
+                  {overallCategory === 'SAFE' && '✅ SAFE'}
+                  {overallCategory === 'WARNING' && '⚠️ WARNING'}
+                  {overallCategory === 'CRITICAL' && '🚨 CRITICAL'}
+                  {' '}&bull; {overallPct}%
+                </span>
+                <span style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '6px', fontWeight: 600 }}>
+                  Total Attended: {totalAttended} / {totalConducted} classes
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* ── Overall Attendance Alert ─────────────────────────────────────── */}
-        {!loading && (
-          isShortage ? (
-            <div className="feedback-alert error" style={{ margin: '0 0 24px 0' }}>
-              <span>
-                <strong>Attendance Notice:</strong> Your overall attendance ({overallPct}%) is below the
-                mandatory 75% threshold. Please attend upcoming classes to meet eligibility criteria.
-              </span>
+        {/* ── Overall Attendance Alert / Number-Based Dialog Boxes (Feature 5) ── */}
+        {!loading && totalConducted > 0 && (
+          overallCategory === 'CRITICAL' ? (
+            <div className="feedback-alert critical" style={{ margin: '0 0 24px 0', padding: '16px', borderRadius: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                <span style={{ fontSize: '1.8rem' }}>🚨</span>
+                <div>
+                  <h4 style={{ margin: '0 0 4px 0', color: '#9f1239', fontWeight: 800 }}>
+                    Critical Attendance Alert: {overallPct}% ({totalAttended} / {totalConducted} classes)
+                  </h4>
+                  <p style={{ margin: 0, fontSize: '0.88rem', lineHeight: 1.5 }}>
+                    Your attendance is strictly in the <strong>CRITICAL</strong> category (&lt; 65%). You are at immediate risk of semester exam debarment.
+                    You must attend the next <strong>{overallNeeded} consecutive classes</strong> without absence to recover to the 75% mandatory threshold.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : overallCategory === 'WARNING' ? (
+            <div className="feedback-alert warning" style={{ margin: '0 0 24px 0', padding: '16px', borderRadius: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                <span style={{ fontSize: '1.8rem' }}>⚠️</span>
+                <div>
+                  <h4 style={{ margin: '0 0 4px 0', color: '#92400e', fontWeight: 800 }}>
+                    Attendance Shortage Warning: {overallPct}% ({totalAttended} / {totalConducted} classes)
+                  </h4>
+                  <p style={{ margin: 0, fontSize: '0.88rem', lineHeight: 1.5 }}>
+                    Your attendance is in the <strong>WARNING</strong> zone (65% to below 75%).
+                    Please attend the upcoming <strong>{overallNeeded} classes</strong> to safely restore your status above 75%.
+                  </p>
+                </div>
+              </div>
             </div>
           ) : (
-            <div className="feedback-alert success" style={{ margin: '0 0 24px 0' }}>
-              <span>
-                <strong>Good Standing:</strong> Your overall attendance ({overallPct}%) meets institutional
-                eligibility requirements.
-              </span>
+            <div className="feedback-alert success" style={{ margin: '0 0 24px 0', padding: '16px', borderRadius: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                <span style={{ fontSize: '1.6rem' }}>✅</span>
+                <div>
+                  <h4 style={{ margin: '0 0 4px 0', color: '#15803d', fontWeight: 800 }}>
+                    Good Standing: {overallPct}% ({totalAttended} / {totalConducted} classes)
+                  </h4>
+                  <p style={{ margin: 0, fontSize: '0.88rem', lineHeight: 1.5 }}>
+                    Your overall attendance is <strong>SAFE</strong> and satisfies institutional exam eligibility requirements.
+                    {overallMissable > 0 ? ` You have a buffer of up to ${overallMissable} classes while maintaining \u2265 75%.` : ''}
+                  </p>
+                </div>
+              </div>
             </div>
           )
         )}
 
-        {/* ── Subject Cards ─────────────────────────────────────────────────── */}
+        {/* ── Subject Cards (Features 2, 3, 4) ─────────────────────────────────── */}
         {loading ? (
           <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>Loading your attendance data…</div>
         ) : (
           <div className="grid-cards" style={{ marginBottom: '28px' }}>
             {subjects.length > 0 ? subjects.map((sub) => {
-              const pct       = sub.attendance_percentage ?? 100.0;
-              const shortage  = sub.is_shortage;
-              const missable  = !shortage
-                ? Math.floor((sub.total_attended - 0.75 * sub.total_conducted) / 0.75)
+              const attended = sub.total_attended || 0;
+              const conducted = sub.total_conducted || 0;
+              const pct = conducted > 0 ? parseFloat(((attended / conducted) * 100).toFixed(2)) : 100.0;
+              
+              let cat = sub.attendance_status || 'SAFE';
+              if (conducted > 0) {
+                if (pct < 65.0) cat = 'CRITICAL';
+                else if (pct < 75.0) cat = 'WARNING';
+                else cat = 'SAFE';
+              }
+
+              const missable = cat === 'SAFE' && conducted > 0
+                ? Math.floor((attended - 0.75 * conducted) / 0.75)
                 : 0;
-              const needed    = shortage
-                ? Math.ceil((0.75 * sub.total_conducted - sub.total_attended) / (1 - 0.75))
+              const needed = cat !== 'SAFE' && conducted > 0
+                ? Math.ceil((0.75 * conducted - attended) / (1 - 0.75))
                 : 0;
 
               return (
-                <div className="feature-card" key={sub.subject_id}>
+                <div className="feature-card" key={sub.subject_id} style={{ display: 'flex', flexDirection: 'column' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <span className="period-badge">{sub.subject_code}</span>
-                    <span
-                      className="badge"
-                      style={{
-                        background: shortage ? '#fee2e2' : '#dcfce7',
-                        color: shortage ? '#b91c1c' : '#15803d',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      {pct}%
+                    <span className={`status-badge status-${cat.toLowerCase()}`}>
+                      {cat} &bull; {pct}%
                     </span>
                   </div>
-                  <h4>{sub.subject_name}</h4>
-                  <p>Faculty: {sub.teacher_name} &bull; Attended: {sub.total_attended} of {sub.total_conducted} classes</p>
+                  <h4 style={{ fontSize: '1.05rem', margin: '4px 0 8px 0', fontWeight: 700 }}>{sub.subject_name}</h4>
+                  
+                  {/* Attendance Fraction (Feature 2) */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                    <span className="attendance-fraction-badge" style={{ fontSize: '0.92rem' }}>
+                      {attended} / {conducted} classes
+                    </span>
+                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                      Faculty: {sub.teacher_name}
+                    </span>
+                  </div>
 
-                  {/* Progress bar */}
-                  <div style={{ background: '#e2e8f0', borderRadius: '4px', height: '6px', margin: '8px 0' }}>
+                  {/* Visual Progress bar */}
+                  <div style={{ background: '#e2e8f0', borderRadius: '4px', height: '8px', margin: '6px 0 10px 0', overflow: 'hidden' }}>
                     <div
+                      className={`progress-${cat.toLowerCase()}`}
                       style={{
-                        background: shortage ? '#ef4444' : '#22c55e',
                         width: `${Math.min(pct, 100)}%`,
                         height: '100%',
                         borderRadius: '4px',
@@ -170,11 +247,15 @@ export default function StudentDashboard() {
                     />
                   </div>
 
-                  {sub.total_conducted > 0 && (
-                    <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '4px 0 8px' }}>
-                      {shortage
-                        ? `⚠ Attend next ${needed} class${needed !== 1 ? 'es' : ''} to reach 75%`
-                        : `✓ Can miss up to ${missable} more class${missable !== 1 ? 'es' : ''}`}
+                  {conducted > 0 ? (
+                    <p style={{ fontSize: '0.8rem', color: cat === 'CRITICAL' ? '#b91c1c' : (cat === 'WARNING' ? '#b45309' : '#15803d'), margin: '0 0 12px 0', fontWeight: 600 }}>
+                      {cat === 'CRITICAL' && `🚨 Critical: Must attend next ${needed} class${needed !== 1 ? 'es' : ''} to reach 75%`}
+                      {cat === 'WARNING' && `⚠️ Warning: Attend next ${needed} class${needed !== 1 ? 'es' : ''} to reach 75%`}
+                      {cat === 'SAFE' && `✓ Safe: Can miss up to ${missable} class${missable !== 1 ? 'es' : ''} while maintaining 75%`}
+                    </p>
+                  ) : (
+                    <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '0 0 12px 0' }}>
+                      No classes conducted yet.
                     </p>
                   )}
 
@@ -190,7 +271,6 @@ export default function StudentDashboard() {
                 </div>
               );
             }) : (
-              /* No subjects found — show placeholder card */
               <div className="feature-card">
                 <span className="period-badge">IDC101</span>
                 <h4>Introduction to Digital Communications</h4>

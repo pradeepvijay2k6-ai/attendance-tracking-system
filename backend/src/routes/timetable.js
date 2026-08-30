@@ -50,21 +50,74 @@ router.get('/teacher/today', async (req, res) => {
       return res.status(400).json({ success: false, message: error.message, classes: [] });
     }
 
-    if (!allSlots || allSlots.length === 0) {
-      return res.json({
-        success: true,
-        date: targetDate.toISOString().split('T')[0],
-        day_of_week: dayOfWeek,
-        classes: []
-      });
-    }
+    const formattedDate = targetDate.toISOString().split('T')[0];
 
-    // Filter by day of week if matching slots exist; otherwise return all assigned slots for this teacher
-    const dayFiltered = (allSlots || []).filter((s) => s.day_of_week === dayOfWeek);
-    const schedule = (dayFiltered.length > 0) ? dayFiltered : allSlots;
+    // Check for approved substitutions for this date
+    // 1. Where teacher is the substitute covering for someone (receiver_id)
+    const { data: coveredSwaps } = await supabase
+      .from('period_swaps')
+      .select(`
+        id,
+        swap_date,
+        period_number,
+        requester:requester_id (id, full_name, email),
+        timetable:timetable_id (
+          id,
+          day_of_week,
+          period_number,
+          start_time,
+          end_time,
+          room_no,
+          classes (id, name, code),
+          sections (id, name),
+          subjects (id, name, code)
+        )
+      `)
+      .eq('receiver_id', teacherId)
+      .eq('swap_date', formattedDate)
+      .eq('status', 'approved');
+
+    // 2. Where teacher requested someone else to cover (requester_id)
+    const { data: handedOverSwaps } = await supabase
+      .from('period_swaps')
+      .select('timetable_id, period_number, receiver:receiver_id(full_name)')
+      .eq('requester_id', teacherId)
+      .eq('swap_date', formattedDate)
+      .eq('status', 'approved');
+
+    const handedOverMap = {};
+    (handedOverSwaps || []).forEach(sw => {
+      handedOverMap[sw.timetable_id] = sw;
+    });
+
+    // Filter regular slots by day of week
+    let dayFiltered = (allSlots || []).filter((s) => s.day_of_week === dayOfWeek);
+    let schedule = (dayFiltered.length > 0) ? dayFiltered : (allSlots || []);
+
+    // Tag handed-over periods
+    schedule = schedule.map(slot => {
+      if (handedOverMap[slot.id]) {
+        return {
+          ...slot,
+          is_substituted_out: true,
+          covered_by: handedOverMap[slot.id].receiver?.full_name || 'Substitute Teacher'
+        };
+      }
+      return slot;
+    });
+
+    // Add incoming substitution classes to schedule
+    (coveredSwaps || []).forEach(sw => {
+      if (sw.timetable) {
+        schedule.push({
+          ...sw.timetable,
+          is_substitute_cover: true,
+          substituted_for: sw.requester?.full_name || 'Faculty Member'
+        });
+      }
+    });
 
     // Check if attendance is already submitted for any of these periods on target date
-    const formattedDate = targetDate.toISOString().split('T')[0];
     const timetableIds = schedule.map((slot) => slot.id);
 
     let sessionMap = {};
@@ -151,13 +204,9 @@ router.get('/:timetable_id/students', async (req, res) => {
   }
 });
 
-
 /**
  * GET /api/timetable/student
  * Returns timetable slots + per-subject attendance stats for the logged-in student.
- *
- * Query params:
- *   email  (optional) — student email; falls back to req.user.email from auth header
  */
 router.get('/student', async (req, res) => {
   try {
@@ -213,29 +262,39 @@ router.get('/student', async (req, res) => {
       if (!subjectId) return;
       if (!subjectStats[subjectId]) subjectStats[subjectId] = { total: 0, attended: 0 };
       subjectStats[subjectId].total++;
-      if (r.status === 'present') subjectStats[subjectId].attended++;
+      if (r.status === 'present' || r.status === 'od') subjectStats[subjectId].attended++;
     });
 
-    // 4. Build unique subject summaries from timetable slots
+    // 4. Build unique subject summaries from timetable slots with Safe / Warning / Critical thresholds
     const DAY_NAMES = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     const subjectMap = {};
     (slots || []).forEach((slot) => {
       const subId = slot.subjects?.id;
       if (!subId || subjectMap[subId]) return;
       const s = subjectStats[subId] || { total: 0, attended: 0 };
-      const pct = s.total > 0 ? parseFloat(((s.attended / s.total) * 100).toFixed(1)) : 100.0;
+      const pct = s.total > 0 ? parseFloat(((s.attended / s.total) * 100).toFixed(2)) : 100.0;
+      
+      // Calculate category: SAFE (>= 75%), WARNING (65% to < 75%), CRITICAL (< 65%)
+      let statusCategory = 'SAFE';
+      if (s.total > 0) {
+        if (pct < 65.0) statusCategory = 'CRITICAL';
+        else if (pct < 75.0) statusCategory = 'WARNING';
+      }
+
       subjectMap[subId] = {
         subject_id: subId,
         subject_name: slot.subjects?.name,
         subject_code: slot.subjects?.code,
-        teacher_name: slot.profiles?.full_name,
+        teacher_name: slot.profiles?.full_name || 'Assigned Faculty',
         teacher_email: slot.profiles?.email,
         class_name: slot.classes?.name,
         section_name: slot.sections?.name,
         total_conducted: s.total,
         total_attended: s.attended,
         attendance_percentage: pct,
-        is_shortage: pct < 75.0 && s.total > 0
+        attendance_status: statusCategory, // 'SAFE' | 'WARNING' | 'CRITICAL'
+        is_shortage: pct < 75.0 && s.total > 0,
+        is_critical: pct < 65.0 && s.total > 0
       };
     });
 
@@ -258,4 +317,5 @@ router.get('/student', async (req, res) => {
 });
 
 module.exports = router;
+
 

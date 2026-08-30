@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import DownloadAppModal, { isRunningAsApp } from '../components/DownloadAppModal';
+import DepartmentTicker from '../components/DepartmentTicker';
 import {
   getTodayTeacherClasses,
   getMySwapsApi,
   createSwapRequestApi,
   respondSwapApi,
+  cancelSwapRequestApi,
   getExtraClassesApi,
   scheduleExtraClassApi,
   getAdminTeachersApi,
@@ -78,7 +80,7 @@ export default function TeacherDashboard() {
         ]);
 
         const mySlots = (ttData.timetables || []).filter(t => t.teacher_id === user?.id || t.teacher_id === profile?.id);
-        const myToday = (clsData.classes || []).filter(t => t.teacher_id === user?.id || t.teacher_id === profile?.id);
+        const myToday = (clsData.classes || []).filter(t => t.teacher_id === user?.id || t.teacher_id === profile?.id || t.is_substitute_cover);
 
         setTodayClasses(myToday);
         setAllTimetableSlots(mySlots);
@@ -115,8 +117,21 @@ export default function TeacherDashboard() {
       await respondSwapApi(swapId, status);
       const res = await getMySwapsApi();
       setSwapsList(res.swaps || []);
+      const clsData = await getTodayTeacherClasses().catch(() => ({ classes: [] }));
+      setTodayClasses(clsData.classes || []);
     } catch (err) {
       alert(err.message);
+    }
+  };
+
+  const handleCancelSwap = async (swapId) => {
+    if (!window.confirm('Cancel this substitution request?')) return;
+    try {
+      await cancelSwapRequestApi(swapId);
+      const res = await getMySwapsApi();
+      setSwapsList(res.swaps || []);
+    } catch (err) {
+      alert(err.response?.data?.message || err.message);
     }
   };
 
@@ -138,6 +153,7 @@ export default function TeacherDashboard() {
 
   return (
     <div className="dashboard-layout">
+
       {/* Clean Header Bar */}
       <header className="dashboard-header">
         <div className="header-left">
@@ -167,6 +183,9 @@ export default function TeacherDashboard() {
       <DownloadAppModal isOpen={showDownloadModal} onClose={() => setShowDownloadModal(false)} />
 
       <main className="dashboard-content">
+        {/* ── IT Department Updates Scrolling Ticker (Feature 7) ───────────────── */}
+        <DepartmentTicker />
+
         <div className="welcome-banner">
           <h3>Welcome, {displayName}</h3>
           <p>{profile?.department || 'Department of Information Technology'} • Faculty Portal</p>
@@ -212,11 +231,28 @@ export default function TeacherDashboard() {
               {displayClasses.map((cls) => {
                 const dayLabel = dayNames[cls.day_of_week] || '';
                 return (
-                  <div key={cls.id} className="feature-card" style={{ padding: '18px' }}>
+                  <div key={cls.id} className="feature-card" style={{ padding: '18px', border: cls.is_substitute_cover ? '2px solid #3b82f6' : undefined }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                       <span className="period-badge">{dayLabel ? `${dayLabel} • P${cls.period_number}` : `Period ${cls.period_number}`}</span>
                       <span className="badge role-teacher">{cls.sections?.name || 'Section'}</span>
                     </div>
+
+                    {cls.is_substitute_cover && (
+                      <div style={{ marginBottom: '8px' }}>
+                        <span className="badge role-admin" style={{ background: '#dbeafe', color: '#1e40af', fontWeight: 700 }}>
+                          🔄 Covering for {cls.substituted_for}
+                        </span>
+                      </div>
+                    )}
+
+                    {cls.is_substituted_out && (
+                      <div style={{ marginBottom: '8px' }}>
+                        <span className="badge role-admin" style={{ background: '#fef3c7', color: '#92400e', fontWeight: 700 }}>
+                          ✓ Handed over to {cls.covered_by}
+                        </span>
+                      </div>
+                    )}
+
                     <h4 style={{ fontSize: '1.05rem', margin: '4px 0', fontWeight: '700' }}>
                       {cls.subjects?.name || 'Introduction to Digital Communications'}
                     </h4>
@@ -249,13 +285,14 @@ export default function TeacherDashboard() {
 
           <div className="feature-card">
             <h4>Period Substitution</h4>
-            <p>Request period exchange with another faculty member for a specific date or accept incoming exchange requests.</p>
+            <p>Exchange or assign a scheduled period to another faculty member. Conflicts are automatically detected and verified.</p>
             <button className="secondary-action-btn" onClick={() => {
+              const defaultSlot = allTimetableSlots[0] || todayClasses[0];
               setSwapForm({
-                receiver_id: teachersList[0]?.id || '',
-                timetable_id: todayClasses[0]?.id || '',
+                receiver_id: teachersList.find(t => t.id !== user?.id)?.id || '',
+                timetable_id: defaultSlot?.id || '',
                 swap_date: new Date().toISOString().split('T')[0],
-                period_number: 1,
+                period_number: defaultSlot?.period_number || 1,
                 reason: ''
               });
               setShowSwapModal(true);
@@ -297,14 +334,25 @@ export default function TeacherDashboard() {
               {swapsList.map((sw) => (
                 <li key={sw.id} className="schedule-item">
                   <div className="schedule-item-info">
-                    <span className="subject-title">Period Swap: {sw.swap_date} (Period {sw.period_number})</span>
-                    <small>From: {sw.requester?.full_name} &rarr; To: {sw.receiver?.full_name}</small>
+                    <span className="subject-title">
+                      Period Swap: {sw.swap_date} (Period {sw.period_number})
+                      {sw.timetable?.subjects?.name && ` • ${sw.timetable.subjects.name}`}
+                    </span>
+                    <small>
+                      From: <strong>{sw.requester?.full_name}</strong> &rarr; To: <strong>{sw.receiver?.full_name}</strong>
+                      {sw.reason && ` ("${sw.reason}")`}
+                    </small>
                   </div>
                   <div>
                     {sw.status === 'pending' && sw.receiver?.id === user?.id ? (
                       <div style={{ display: 'flex', gap: '6px' }}>
                         <button className="action-btn edit" onClick={() => handleRespondSwap(sw.id, 'approved')}>Accept</button>
                         <button className="action-btn delete" onClick={() => handleRespondSwap(sw.id, 'rejected')}>Reject</button>
+                      </div>
+                    ) : sw.status === 'pending' && sw.requester?.id === user?.id ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className="badge role-admin" style={{ background: '#fef3c7', color: '#b45309' }}>Pending Approval</span>
+                        <button className="action-btn delete" style={{ fontSize: '0.75rem' }} onClick={() => handleCancelSwap(sw.id)}>Cancel</button>
                       </div>
                     ) : (
                       <span className={`badge ${sw.status === 'approved' ? 'role-student' : 'role-admin'}`}>{sw.status}</span>
@@ -329,31 +377,62 @@ export default function TeacherDashboard() {
       {/* MODAL: REQUEST SUBSTITUTION */}
       {showSwapModal && (
         <div className="modal-overlay">
-          <div className="modal-content">
+          <div className="modal-content" style={{ maxWidth: '480px' }}>
             <h3>Request Period Substitution</h3>
+            <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '16px' }}>
+              Hand over your period to another faculty member for a specific date.
+            </p>
             <form onSubmit={handleSendSwap}>
+              <div className="form-group">
+                <label>Select Scheduled Period</label>
+                <select
+                  required
+                  value={swapForm.timetable_id}
+                  onChange={(e) => {
+                    const selected = allTimetableSlots.find(s => s.id === e.target.value);
+                    setSwapForm({
+                      ...swapForm,
+                      timetable_id: e.target.value,
+                      period_number: selected?.period_number || swapForm.period_number
+                    });
+                  }}
+                >
+                  <option value="">-- Choose Period to Hand Over --</option>
+                  {allTimetableSlots.map((slot) => (
+                    <option key={slot.id} value={slot.id}>
+                      {dayNames[slot.day_of_week]} • Period {slot.period_number}: {slot.subjects?.name} ({slot.sections?.name})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="form-group">
                 <label>Date of Exchange</label>
                 <input required type="date" value={swapForm.swap_date} onChange={(e) => setSwapForm({ ...swapForm, swap_date: e.target.value })} />
               </div>
+
               <div className="form-group">
                 <label>Period Number</label>
                 <select value={swapForm.period_number} onChange={(e) => setSwapForm({ ...swapForm, period_number: parseInt(e.target.value, 10) })}>
                   {[1, 2, 3, 4, 5, 6, 7, 8].map((p) => <option key={p} value={p}>Period {p}</option>)}
                 </select>
               </div>
+
               <div className="form-group">
                 <label>Substitute Teacher</label>
-                <select value={swapForm.receiver_id} onChange={(e) => setSwapForm({ ...swapForm, receiver_id: e.target.value })}>
+                <select required value={swapForm.receiver_id} onChange={(e) => setSwapForm({ ...swapForm, receiver_id: e.target.value })}>
+                  <option value="">-- Choose Substitute Faculty --</option>
                   {teachersList.filter((t) => t.id !== user?.id).map((t) => (
                     <option key={t.id} value={t.id}>{t.full_name} ({t.email})</option>
                   ))}
                 </select>
               </div>
+
               <div className="form-group">
                 <label>Reason for Substitution</label>
-                <textarea required rows="2" value={swapForm.reason} onChange={(e) => setSwapForm({ ...swapForm, reason: e.target.value })} placeholder="e.g. Attending academic conference" />
+                <textarea required rows="2" value={swapForm.reason} onChange={(e) => setSwapForm({ ...swapForm, reason: e.target.value })} placeholder="e.g. Attending departmental meeting or academic conference" />
               </div>
+
               <div className="modal-actions">
                 <button type="button" className="btn-cancel" onClick={() => setShowSwapModal(false)}>Cancel</button>
                 <button type="submit" className="btn-confirm">Send Request</button>

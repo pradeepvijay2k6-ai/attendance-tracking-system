@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/useAuth';
 import { useNavigate } from 'react-router-dom';
+import DepartmentTicker from '../components/DepartmentTicker';
 import {
   getAdminStatsApi,
   getAdminStudentsApi,
@@ -30,7 +31,12 @@ import {
   getAdminSessionsApi,
   deleteAdminSessionApi,
   resetSystemDataApi,
-  adminOverrideStudentAttendanceApi
+  adminOverrideStudentAttendanceApi,
+  reassignSubjectTeacherApi,
+  getAnnouncementsApi,
+  createAnnouncementApi,
+  updateAnnouncementApi,
+  deleteAnnouncementApi
 } from '../services/api';
 
 const dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -45,7 +51,7 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState('overview'); // overview, students, teachers, classes, subjects, timetable, sessions, reset
+  const [activeTab, setActiveTab] = useState('overview'); // overview, students, teachers, classes, subjects, timetable, sessions, announcements, reset
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState(null);
 
@@ -65,11 +71,14 @@ export default function AdminDashboard() {
   const [departmentsList, setDepartmentsList] = useState([]);
   const [timetablesList, setTimetablesList] = useState([]);
   const [sessionsList, setSessionsList] = useState([]);
+  const [announcementsList, setAnnouncementsList] = useState([]);
+  const [tickerKey, setTickerKey] = useState(0);
 
   // Search & Filter
   const [searchStudent, setSearchStudent] = useState('');
   const [filterClass, setFilterClass] = useState('');
   const [filterSection, setFilterSection] = useState('');
+  const [searchSubjectAssignment, setSearchSubjectAssignment] = useState('');
 
   // Modals
   const [showStudentModal, setShowStudentModal] = useState(false);
@@ -106,6 +115,27 @@ export default function AdminDashboard() {
     room_no: 'Room 101'
   });
 
+  // Priority 1: Subject <-> Teacher Reassignment Modal
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const [reassignForm, setReassignForm] = useState({
+    subject_id: '',
+    subject_name: '',
+    subject_code: '',
+    class_id: '',
+    section_id: '',
+    class_name: '',
+    section_name: '',
+    current_teacher_id: '',
+    current_teacher_name: '',
+    new_teacher_id: ''
+  });
+  const [reassignLoading, setReassignLoading] = useState(false);
+
+  // Priority 7: Announcements Modal
+  const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
+  const [editingAnnouncement, setEditingAnnouncement] = useState(null);
+  const [announcementForm, setAnnouncementForm] = useState({ title: '', message: '' });
+
   const [showResetModal, setShowResetModal] = useState(false);
 
   // Student Attendance Override Modal
@@ -118,6 +148,7 @@ export default function AdminDashboard() {
     remarks: 'Admin Attendance Correction'
   });
   const [overrideLoading, setOverrideLoading] = useState(false);
+
 
   const handleOpenOverrideModal = (student = null) => {
     setOverrideForm({
@@ -166,7 +197,7 @@ export default function AdminDashboard() {
   const loadAllMasterData = async () => {
     setLoading(true);
     try {
-      const [stData, clData, secData, subData, depData, ttData, sessData, profData] = await Promise.all([
+      const [stData, clData, secData, subData, depData, ttData, sessData, profData, annData] = await Promise.all([
         getAdminStatsApi().catch(() => null),
         getAdminClassesApi().catch(() => ({ classes: [] })),
         getAdminSectionsApi().catch(() => ({ sections: [] })),
@@ -174,7 +205,8 @@ export default function AdminDashboard() {
         getAdminDepartmentsApi().catch(() => ({ departments: [] })),
         getAdminTimetablesApi().catch(() => ({ timetables: [] })),
         getAdminSessionsApi().catch(() => ({ sessions: [] })),
-        getAdminTeachersApi().catch(() => ({ teachers: [] }))
+        getAdminTeachersApi().catch(() => ({ teachers: [] })),
+        getAnnouncementsApi().catch(() => ({ announcements: [] }))
       ]);
 
       if (stData?.stats) setStats(stData.stats);
@@ -185,6 +217,7 @@ export default function AdminDashboard() {
       setTimetablesList(ttData.timetables || []);
       setSessionsList(sessData.sessions || []);
       setTeachers(profData.teachers || []);
+      setAnnouncementsList(annData.announcements || []);
 
       const stdRes = await getAdminStudentsApi();
       setStudents(stdRes.students || []);
@@ -206,8 +239,9 @@ export default function AdminDashboard() {
       getAdminDepartmentsApi().catch(() => ({ departments: [] })),
       getAdminTimetablesApi().catch(() => ({ timetables: [] })),
       getAdminSessionsApi().catch(() => ({ sessions: [] })),
-      getAdminTeachersApi().catch(() => ({ teachers: [] }))
-    ]).then(([stData, clData, secData, subData, depData, ttData, sessData, profData]) => {
+      getAdminTeachersApi().catch(() => ({ teachers: [] })),
+      getAnnouncementsApi().catch(() => ({ announcements: [] }))
+    ]).then(([stData, clData, secData, subData, depData, ttData, sessData, profData, annData]) => {
       if (!isMounted) return;
       if (stData?.stats) setStats(stData.stats);
       setClassesList(clData.classes || []);
@@ -217,6 +251,7 @@ export default function AdminDashboard() {
       setTimetablesList(ttData.timetables || []);
       setSessionsList(sessData.sessions || []);
       setTeachers(profData.teachers || []);
+      setAnnouncementsList(annData.announcements || []);
     });
 
     getAdminStudentsApi().then((stdRes) => {
@@ -225,6 +260,144 @@ export default function AdminDashboard() {
 
     return () => { isMounted = false; };
   }, [isUnlocked]);
+
+  // Priority 1: Open Reassign Teacher Modal
+  const handleOpenReassignModal = (assignment) => {
+    setReassignForm({
+      subject_id: assignment.subject_id,
+      subject_name: assignment.subject_name,
+      subject_code: assignment.subject_code,
+      class_id: assignment.class_id || '',
+      section_id: assignment.section_id || '',
+      class_name: assignment.class_name || 'All Classes',
+      section_name: assignment.section_name || 'All Sections',
+      current_teacher_id: assignment.teacher_id || '',
+      current_teacher_name: assignment.teacher_name || 'Unassigned',
+      new_teacher_id: teachers[0]?.id || ''
+    });
+    setShowReassignModal(true);
+  };
+
+  const handleSaveReassignment = async (e) => {
+    e.preventDefault();
+    if (!reassignForm.subject_id || !reassignForm.new_teacher_id) {
+      setFeedback({ type: 'error', message: 'Please select a new faculty member.' });
+      return;
+    }
+    try {
+      setReassignLoading(true);
+      const res = await reassignSubjectTeacherApi({
+        subject_id: reassignForm.subject_id,
+        new_teacher_id: reassignForm.new_teacher_id,
+        class_id: reassignForm.class_id || undefined,
+        section_id: reassignForm.section_id || undefined
+      });
+      setFeedback({
+        type: 'success',
+        message: res.message || `Subject "${reassignForm.subject_name}" successfully reassigned!`
+      });
+      setShowReassignModal(false);
+      await loadAllMasterData();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err.response?.data?.message || err.message });
+    } finally {
+      setReassignLoading(false);
+    }
+  };
+
+  // Priority 7: Save / Delete Announcement Handlers
+  const handleSaveAnnouncement = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingAnnouncement) {
+        await updateAnnouncementApi(editingAnnouncement.id, announcementForm);
+        setFeedback({ type: 'success', message: 'Announcement updated successfully.' });
+      } else {
+        await createAnnouncementApi(announcementForm);
+        setFeedback({ type: 'success', message: 'Announcement posted successfully.' });
+      }
+      setShowAnnouncementModal(false);
+      setEditingAnnouncement(null);
+      setAnnouncementForm({ title: '', message: '' });
+      setTickerKey(prev => prev + 1);
+      await loadAllMasterData();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err.response?.data?.message || err.message });
+    }
+  };
+
+  const handleDeleteAnnouncement = async (id, title) => {
+    if (!window.confirm(`Delete announcement "${title}"?`)) return;
+    try {
+      await deleteAnnouncementApi(id);
+      setFeedback({ type: 'success', message: 'Announcement deleted.' });
+      setTickerKey(prev => prev + 1);
+      await loadAllMasterData();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err.response?.data?.message || err.message });
+    }
+  };
+
+  // Derived subject assignments matrix for Priority 1
+  const subjectAssignmentsList = useMemo(() => {
+    const map = {};
+    (timetablesList || []).forEach(tt => {
+      const key = `${tt.subject_id}_${tt.class_id}_${tt.section_id}`;
+      if (!map[key]) {
+        map[key] = {
+          key,
+          subject_id: tt.subject_id,
+          subject_name: tt.subjects?.name || 'Subject',
+          subject_code: tt.subjects?.code || '—',
+          class_id: tt.class_id,
+          class_name: tt.classes?.name || '—',
+          section_id: tt.section_id,
+          section_name: tt.sections?.name || '—',
+          teacher_id: tt.teacher_id,
+          teacher_name: tt.profiles?.full_name || 'Unassigned',
+          teacher_email: tt.profiles?.email || '',
+          slot_count: 1
+        };
+      } else {
+        map[key].slot_count += 1;
+      }
+    });
+
+    (subjectsList || []).forEach(sub => {
+      const hasEntry = Object.values(map).some(m => m.subject_id === sub.id);
+      if (!hasEntry) {
+        const key = `unassigned_${sub.id}`;
+        map[key] = {
+          key,
+          subject_id: sub.id,
+          subject_name: sub.name,
+          subject_code: sub.code,
+          class_id: '',
+          class_name: 'All Classes',
+          section_id: '',
+          section_name: 'All Sections',
+          teacher_id: '',
+          teacher_name: 'Unassigned',
+          teacher_email: '',
+          slot_count: 0
+        };
+      }
+    });
+
+    let list = Object.values(map);
+    if (searchSubjectAssignment.trim()) {
+      const q = searchSubjectAssignment.toLowerCase();
+      list = list.filter(item =>
+        item.subject_name.toLowerCase().includes(q) ||
+        item.subject_code.toLowerCase().includes(q) ||
+        item.teacher_name.toLowerCase().includes(q) ||
+        item.class_name.toLowerCase().includes(q) ||
+        item.section_name.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [timetablesList, subjectsList, searchSubjectAssignment]);
+
 
   useEffect(() => {
     if (activeTab === 'students' && isUnlocked) {
@@ -540,6 +713,9 @@ export default function AdminDashboard() {
         <button className={`admin-tab-btn ${activeTab === 'sessions' ? 'active' : ''}`} onClick={() => setActiveTab('sessions')}>
           Attendance Logs ({sessionsList.length})
         </button>
+        <button className={`admin-tab-btn ${activeTab === 'announcements' ? 'active' : ''}`} onClick={() => setActiveTab('announcements')}>
+          📢 Announcements ({announcementsList.length})
+        </button>
         <button className={`admin-tab-btn danger ${activeTab === 'reset' ? 'active' : ''}`} onClick={() => setActiveTab('reset')}>
           System Reset
         </button>
@@ -555,6 +731,9 @@ export default function AdminDashboard() {
 
       {/* Main Content Area */}
       <main className="admin-main-content">
+        {/* Department Ticker Banner */}
+        <DepartmentTicker refreshKey={tickerKey} />
+
         {/* TAB 1: OVERVIEW */}
         {activeTab === 'overview' && (
           <div className="overview-tab-content">
@@ -588,8 +767,14 @@ export default function AdminDashboard() {
                   <button className="terminal-btn primary" onClick={openAddStudentModal}>
                     + Add Student
                   </button>
+                  <button className="terminal-btn secondary" style={{ background: '#2563eb', color: '#ffffff' }} onClick={() => setActiveTab('subjects')}>
+                    🔄 Change Teacher Assignment
+                  </button>
                   <button className="terminal-btn secondary" style={{ background: '#059669', color: '#ffffff' }} onClick={() => handleOpenOverrideModal()}>
                     ✏️ Update / Override Attendance
+                  </button>
+                  <button className="terminal-btn secondary" onClick={() => { setAnnouncementForm({ title: '', message: '' }); setEditingAnnouncement(null); setShowAnnouncementModal(true); }}>
+                    📢 Post IT Update
                   </button>
                   <button className="terminal-btn secondary" onClick={openAddTeacherModal}>
                     + Add Faculty
@@ -672,19 +857,31 @@ export default function AdminDashboard() {
                     <th>Register Number</th>
                     <th>Full Name</th>
                     <th>Class / Section</th>
-                    <th>Attendance %</th>
+                    <th>Attendance (Attended / Total)</th>
+                    <th>Status & Percentage</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {students.length === 0 ? (
-                    <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>No students found.</td></tr>
+                    <tr><td colSpan="7" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>No students found.</td></tr>
                   ) : (
                     students.map((s) => {
-                      const pct = s.attendance_percentage !== undefined ? s.attendance_percentage : 100.0;
-                      const isShortage = s.is_shortage || (pct < 75.0 && (s.total_conducted || 0) > 0);
                       const attended = s.total_attended !== undefined ? s.total_attended : 0;
                       const total = s.total_conducted !== undefined ? s.total_conducted : 0;
+                      const pct = total > 0 ? parseFloat(((attended / total) * 100).toFixed(2)) : (s.attendance_percentage !== undefined ? s.attendance_percentage : 100.0);
+                      
+                      let statusBadgeClass = 'status-safe';
+                      let statusText = 'SAFE';
+                      if (total > 0) {
+                        if (pct < 65.0) {
+                          statusBadgeClass = 'status-critical';
+                          statusText = 'CRITICAL';
+                        } else if (pct < 75.0) {
+                          statusBadgeClass = 'status-warning';
+                          statusText = 'WARNING';
+                        }
+                      }
 
                       return (
                         <tr key={s.id}>
@@ -699,24 +896,14 @@ export default function AdminDashboard() {
                             <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>{s.classes?.name || 'B.Tech IT'}</div>
                           </td>
                           <td>
-                            <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                              <span
-                                className="badge"
-                                style={{
-                                  background: isShortage ? '#fee2e2' : '#dcfce7',
-                                  color: isShortage ? '#b91c1c' : '#15803d',
-                                  fontWeight: '800',
-                                  fontSize: '0.82rem',
-                                  padding: '4px 8px',
-                                  borderRadius: '6px'
-                                }}
-                              >
-                                {pct}% {isShortage ? '⚠️ Shortage' : '✓ Good'}
-                              </span>
-                              <span style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
-                                {attended} of {total} classes
-                              </span>
-                            </div>
+                            <span className="attendance-fraction-badge">
+                              {attended} / {total} classes
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`status-badge ${statusBadgeClass}`}>
+                              {statusText} · {pct}%
+                            </span>
                           </td>
                           <td>
                             <div style={{ display: 'flex', gap: '6px' }}>
@@ -923,66 +1110,150 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* TAB 5: SUBJECTS */}
+        {/* TAB 5: SUBJECTS & TEACHER ASSIGNMENTS (PRIORITY 1) */}
         {activeTab === 'subjects' && (
-          <div className="admin-section-card">
-            <div className="section-toolbar">
-              <h2>Course & Subject Master</h2>
-              <button className="terminal-btn primary" onClick={() => {
-                setSubjectForm({ name: '', code: '', semester: 1, department_id: departmentsList[0]?.id || '' });
-                setShowSubjectModal(true);
-              }}>
-                + Add Subject
-              </button>
+          <div>
+            {/* 1. Manage Subject Assignments Section */}
+            <div className="admin-section-card" style={{ marginBottom: '24px', border: '1px solid #bfdbfe', background: '#f8fafc' }}>
+              <div className="section-toolbar">
+                <div>
+                  <h2 style={{ color: '#1e40af', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>🔄</span> Manage Subject Assignments
+                  </h2>
+                  <p style={{ color: '#64748b', fontSize: '0.85rem', marginTop: '2px' }}>
+                    Quickly assign or reassign teachers for subjects. Timetable slots update automatically while preserving all historical attendance data.
+                  </p>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Filter subjects, codes, faculty, or sections..."
+                  className="search-input"
+                  style={{ maxWidth: '320px' }}
+                  value={searchSubjectAssignment}
+                  onChange={(e) => setSearchSubjectAssignment(e.target.value)}
+                />
+              </div>
+
+              <div className="table-responsive">
+                <table className="admin-table" style={{ background: '#ffffff' }}>
+                  <thead>
+                    <tr style={{ background: '#eff6ff' }}>
+                      <th style={{ color: '#1e3a8a' }}>Course Code</th>
+                      <th style={{ color: '#1e3a8a' }}>Subject Name</th>
+                      <th style={{ color: '#1e3a8a' }}>Class & Section</th>
+                      <th style={{ color: '#1e3a8a' }}>Current Assigned Faculty</th>
+                      <th style={{ color: '#1e3a8a' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {subjectAssignmentsList.length === 0 ? (
+                      <tr><td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>No subject assignments found.</td></tr>
+                    ) : (
+                      subjectAssignmentsList.map((item) => (
+                        <tr key={item.key}>
+                          <td><code>{item.subject_code}</code></td>
+                          <td><strong>{item.subject_name}</strong></td>
+                          <td>
+                            <span className="badge role-teacher">{item.class_name} • {item.section_name}</span>
+                          </td>
+                          <td>
+                            {item.teacher_id ? (
+                              <div>
+                                <strong style={{ color: '#0f172a' }}>{item.teacher_name}</strong>
+                                {item.teacher_email && <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{item.teacher_email}</div>}
+                              </div>
+                            ) : (
+                              <span style={{ color: '#ef4444', fontStyle: 'italic' }}>Unassigned</span>
+                            )}
+                          </td>
+                          <td>
+                            <button
+                              className="action-btn"
+                              style={{
+                                background: '#2563eb',
+                                color: '#ffffff',
+                                border: 'none',
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                fontSize: '0.82rem',
+                                fontWeight: '700',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                              }}
+                              onClick={() => handleOpenReassignModal(item)}
+                            >
+                              <span>🔄</span> Change Teacher
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Course Code</th>
-                  <th>Subject Name</th>
-                  <th>Department</th>
-                  <th>Semester</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {subjectsList.map((sub) => (
-                  <tr key={sub.id}>
-                    <td><code>{sub.code}</code></td>
-                    <td><strong>{sub.name}</strong></td>
-                    <td>{sub.departments?.name || '—'}</td>
-                    <td>Semester {sub.semester}</td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <button
-                          className="action-btn"
-                          style={{ background: '#0284c7', color: '#ffffff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '0.78rem', fontWeight: '600' }}
-                          onClick={() => {
-                            setEditingTimetable(null);
-                            setTimetableForm({
-                              class_id:      classesList[0]?.id  || '',
-                              section_id:    sectionsList[0]?.id || '',
-                              subject_id:    sub.id,
-                              teacher_id:    teachers[0]?.id     || '',
-                              day_of_week:   1,
-                              period_number: 1,
-                              start_time:    '09:00:00',
-                              end_time:      '10:00:00',
-                              room_no:       'Room 101'
-                            });
-                            setActiveTab('timetable');
-                            setShowTimetableModal(true);
-                          }}
-                        >
-                          + Allot to Teacher
-                        </button>
-                        <button className="action-btn delete" onClick={async () => { await deleteSubjectApi(sub.id); loadAllMasterData(); }}>Delete</button>
-                      </div>
-                    </td>
+
+            {/* 2. Course & Subject Master */}
+            <div className="admin-section-card">
+              <div className="section-toolbar">
+                <h2>Course & Subject Master</h2>
+                <button className="terminal-btn primary" onClick={() => {
+                  setSubjectForm({ name: '', code: '', semester: 1, department_id: departmentsList[0]?.id || '' });
+                  setShowSubjectModal(true);
+                }}>
+                  + Add Subject
+                </button>
+              </div>
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Course Code</th>
+                    <th>Subject Name</th>
+                    <th>Department</th>
+                    <th>Semester</th>
+                    <th>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {subjectsList.map((sub) => (
+                    <tr key={sub.id}>
+                      <td><code>{sub.code}</code></td>
+                      <td><strong>{sub.name}</strong></td>
+                      <td>{sub.departments?.name || '—'}</td>
+                      <td>Semester {sub.semester}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            className="action-btn"
+                            style={{ background: '#0284c7', color: '#ffffff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '0.78rem', fontWeight: '600' }}
+                            onClick={() => {
+                              setEditingTimetable(null);
+                              setTimetableForm({
+                                class_id:      classesList[0]?.id  || '',
+                                section_id:    sectionsList[0]?.id || '',
+                                subject_id:    sub.id,
+                                teacher_id:    teachers[0]?.id     || '',
+                                day_of_week:   1,
+                                period_number: 1,
+                                start_time:    '09:00:00',
+                                end_time:      '10:00:00',
+                                room_no:       'Room 101'
+                              });
+                              setActiveTab('timetable');
+                              setShowTimetableModal(true);
+                            }}
+                          >
+                            + Allot to Teacher
+                          </button>
+                          <button className="action-btn delete" onClick={async () => { await deleteSubjectApi(sub.id); loadAllMasterData(); }}>Delete</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -1103,6 +1374,89 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* TAB 8: ANNOUNCEMENTS & IT DEPARTMENT UPDATES (PRIORITY 7) */}
+        {activeTab === 'announcements' && (
+          <div className="admin-section-card">
+            <div className="section-toolbar">
+              <div>
+                <h2>📢 IT Department Updates & Scrolling Announcements</h2>
+                <p style={{ color: '#64748b', fontSize: '0.85rem', marginTop: '2px' }}>
+                  Notices and announcements posted here scroll in real-time on student, teacher, and admin dashboards.
+                </p>
+              </div>
+              <button
+                className="terminal-btn primary"
+                onClick={() => {
+                  setEditingAnnouncement(null);
+                  setAnnouncementForm({ title: 'IT Department', message: '' });
+                  setShowAnnouncementModal(true);
+                }}
+              >
+                + Post Announcement
+              </button>
+            </div>
+
+            <div className="table-responsive">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Headline / Title</th>
+                    <th>Announcement Message</th>
+                    <th>Date Posted</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {announcementsList.length === 0 ? (
+                    <tr>
+                      <td colSpan="4" style={{ textAlign: 'center', padding: '2.5rem', color: '#64748b' }}>
+                        No announcements posted yet. Click <strong>+ Post Announcement</strong> to create one!
+                      </td>
+                    </tr>
+                  ) : (
+                    announcementsList.map((ann) => (
+                      <tr key={ann.id}>
+                        <td>
+                          <strong style={{ color: '#0284c7' }}>📢 {ann.title}</strong>
+                        </td>
+                        <td style={{ color: '#334155', maxWidth: '400px' }}>
+                          {ann.message}
+                        </td>
+                        <td>
+                          <small style={{ color: '#64748b' }}>
+                            {ann.created_at ? new Date(ann.created_at).toLocaleDateString() : 'Active'}
+                          </small>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button
+                              className="action-btn edit"
+                              onClick={() => {
+                                setEditingAnnouncement(ann);
+                                setAnnouncementForm({ title: ann.title, message: ann.message });
+                                setShowAnnouncementModal(true);
+                              }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              className="action-btn delete"
+                              onClick={() => handleDeleteAnnouncement(ann.id, ann.title)}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+
         {/* TAB 8: SYSTEM RESET */}
         {activeTab === 'reset' && (
           <div className="admin-section-card" style={{ border: '1px solid #ef4444' }}>
@@ -1215,7 +1569,29 @@ export default function AdminDashboard() {
               </div>
               <div className="form-group">
                 <label>Period Number</label>
-                <select value={timetableForm.period_number} onChange={(e) => setTimetableForm({ ...timetableForm, period_number: e.target.value })}>
+                <select
+                  value={timetableForm.period_number}
+                  onChange={(e) => {
+                    const p = parseInt(e.target.value, 10);
+                    const scheduleTimings = {
+                      1: { start: '08:00:00', end: '08:45:00' },
+                      2: { start: '08:45:00', end: '09:30:00' },
+                      3: { start: '09:50:00', end: '10:35:00' },
+                      4: { start: '10:35:00', end: '11:20:00' },
+                      5: { start: '12:20:00', end: '13:05:00' },
+                      6: { start: '13:05:00', end: '13:50:00' },
+                      7: { start: '14:10:00', end: '14:55:00' },
+                      8: { start: '14:55:00', end: '15:40:00' },
+                    };
+                    const timing = scheduleTimings[p] || { start: '08:00:00', end: '08:45:00' };
+                    setTimetableForm({
+                      ...timetableForm,
+                      period_number: p,
+                      start_time: timing.start,
+                      end_time: timing.end
+                    });
+                  }}
+                >
                   {[1, 2, 3, 4, 5, 6, 7, 8].map((p) => <option key={p} value={p}>Period {p}</option>)}
                 </select>
               </div>
@@ -1537,6 +1913,138 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* MODAL: CHANGE TEACHER (PRIORITY 1) */}
+      {showReassignModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '480px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a' }}>🔄 Change Teacher</h3>
+              <button onClick={() => setShowReassignModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+            </div>
+            
+            <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '18px', lineHeight: 1.5 }}>
+              Select a new faculty member to teach this subject. Timetable slots will automatically update while preserving all historical attendance data.
+            </p>
+
+            <form onSubmit={handleSaveReassignment}>
+              <div className="form-group">
+                <label style={{ fontWeight: '600', fontSize: '0.85rem' }}>Subject</label>
+                <div style={{ padding: '10px 12px', background: '#f1f5f9', borderRadius: '8px', border: '1px solid #e2e8f0', fontWeight: '700', color: '#1e293b' }}>
+                  {reassignForm.subject_name} <code style={{ marginLeft: '6px', color: '#2563eb' }}>({reassignForm.subject_code})</code>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label style={{ fontWeight: '600', fontSize: '0.85rem' }}>Class & Section</label>
+                <div style={{ padding: '10px 12px', background: '#f1f5f9', borderRadius: '8px', border: '1px solid #e2e8f0', color: '#475569' }}>
+                  {reassignForm.class_name} • <strong>{reassignForm.section_name}</strong>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label style={{ fontWeight: '600', fontSize: '0.85rem' }}>Current Faculty</label>
+                <div style={{ padding: '10px 12px', background: '#fee2e2', borderRadius: '8px', border: '1px solid #fecaca', color: '#991b1b', fontWeight: '600' }}>
+                  {reassignForm.current_teacher_name}
+                </div>
+              </div>
+
+              <div className="form-group" style={{ marginTop: '16px' }}>
+                <label style={{ fontWeight: '700', fontSize: '0.9rem', color: '#0f172a' }}>
+                  Assign New Faculty Member <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <select
+                  required
+                  value={reassignForm.new_teacher_id}
+                  onChange={(e) => setReassignForm({ ...reassignForm, new_teacher_id: e.target.value })}
+                  style={{
+                    padding: '11px 12px',
+                    borderRadius: '8px',
+                    border: '2px solid #3b82f6',
+                    width: '100%',
+                    fontWeight: '600',
+                    fontSize: '0.92rem',
+                    background: '#ffffff',
+                    color: '#0f172a'
+                  }}
+                >
+                  <option value="">-- Choose New Faculty --</option>
+                  {teachers.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      👨‍🏫 {t.full_name} ({t.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="modal-actions" style={{ marginTop: '22px' }}>
+                <button type="button" className="btn-cancel" onClick={() => setShowReassignModal(false)}>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-confirm"
+                  disabled={reassignLoading || !reassignForm.new_teacher_id}
+                  style={{ background: '#2563eb' }}
+                >
+                  {reassignLoading ? 'Saving Changes...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: POST / EDIT ANNOUNCEMENT (PRIORITY 7) */}
+      {showAnnouncementModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '480px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a' }}>
+                {editingAnnouncement ? 'Edit IT Department Update' : '📢 Post IT Department Update'}
+              </h3>
+              <button onClick={() => setShowAnnouncementModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+            </div>
+            <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '16px' }}>
+              This update will immediately scroll across all student, teacher, and admin portals in the header ticker.
+            </p>
+
+            <form onSubmit={handleSaveAnnouncement}>
+              <div className="form-group">
+                <label style={{ fontWeight: '600', fontSize: '0.85rem' }}>Headline / Source</label>
+                <input
+                  required
+                  type="text"
+                  value={announcementForm.title}
+                  onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
+                  placeholder="e.g. IT Department, HOD Notice, Exam Cell"
+                />
+              </div>
+
+              <div className="form-group">
+                <label style={{ fontWeight: '600', fontSize: '0.85rem' }}>Announcement Message</label>
+                <textarea
+                  required
+                  rows="3"
+                  value={announcementForm.message}
+                  onChange={(e) => setAnnouncementForm({ ...announcementForm, message: e.target.value })}
+                  placeholder="e.g. Internal Assessment 1 begins from 5th September. All students must bring physical record notebooks."
+                />
+              </div>
+
+              <div className="modal-actions" style={{ marginTop: '20px' }}>
+                <button type="button" className="btn-cancel" onClick={() => setShowAnnouncementModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-confirm" style={{ background: '#0284c7' }}>
+                  {editingAnnouncement ? 'Update Announcement' : 'Publish Announcement'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

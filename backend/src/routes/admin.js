@@ -575,7 +575,143 @@ router.delete('/attendance-sessions/:id', async (req, res) => {
 });
 
 // ==============================================================================
-// 7. SYSTEM DATABASE CLEAN RESET
+// 7. TEACHER <-> SUBJECT REASSIGNMENT (PRIORITY 1)
+// ==============================================================================
+router.put('/reassign-subject-teacher', async (req, res) => {
+  try {
+    const { subject_id, new_teacher_id, class_id, section_id } = req.body;
+
+    if (!subject_id || !new_teacher_id) {
+      return res.status(400).json({ success: false, message: 'subject_id and new_teacher_id are required' });
+    }
+
+    // Verify the new teacher profile exists
+    const { data: teacher, error: tErr } = await supabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .eq('id', new_teacher_id)
+      .single();
+
+    if (tErr || !teacher) {
+      return res.status(404).json({ success: false, message: 'Selected teacher profile was not found' });
+    }
+
+    // Verify the subject exists
+    const { data: subject, error: sErr } = await supabase
+      .from('subjects')
+      .select('id, name, code')
+      .eq('id', subject_id)
+      .single();
+
+    if (sErr || !subject) {
+      return res.status(404).json({ success: false, message: 'Selected subject was not found' });
+    }
+
+    // Update timetables where this subject is taught
+    let query = supabase
+      .from('timetables')
+      .update({ teacher_id: new_teacher_id })
+      .eq('subject_id', subject_id);
+
+    if (class_id) query = query.eq('class_id', class_id);
+    if (section_id) query = query.eq('section_id', section_id);
+
+    const { data: updatedSlots, error: uErr } = await query.select();
+
+    if (uErr) throw uErr;
+
+    res.json({
+      success: true,
+      message: `Successfully reassigned ${subject.name} (${subject.code}) to ${teacher.full_name}`,
+      updated_slots_count: updatedSlots?.length || 0,
+      subject,
+      new_teacher: teacher
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ==============================================================================
+// 8. ANNOUNCEMENTS / IT DEPARTMENT UPDATES CRUD
+// ==============================================================================
+router.get('/announcements', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('announcements')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      // Return empty list gracefully if table doesn't exist yet
+      console.warn('Announcements fetch warning:', error.message);
+      return res.json({ success: true, announcements: [] });
+    }
+
+    res.json({ success: true, announcements: data || [] });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, announcements: [] });
+  }
+});
+
+router.post('/announcements', async (req, res) => {
+  try {
+    const { title, message } = req.body;
+    if (!title || !message) {
+      return res.status(400).json({ success: false, message: 'Title and message are required' });
+    }
+
+    const { data, error } = await supabase
+      .from('announcements')
+      .insert([{
+        title: title.trim(),
+        message: message.trim()
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(201).json({ success: true, message: 'Announcement posted successfully', announcement: data });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+router.put('/announcements/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, message } = req.body;
+
+    const { data, error } = await supabase
+      .from('announcements')
+      .update({
+        title: title?.trim(),
+        message: message?.trim()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ success: true, message: 'Announcement updated successfully', announcement: data });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+router.delete('/announcements/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { error } = await supabase.from('announcements').delete().eq('id', id);
+    if (error) throw error;
+    res.json({ success: true, message: 'Announcement removed successfully' });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// ==============================================================================
+// 9. SYSTEM DATABASE CLEAN RESET
 // ==============================================================================
 router.post('/system/reset-data', async (req, res) => {
   try {
@@ -587,3 +723,4 @@ router.post('/system/reset-data', async (req, res) => {
 });
 
 module.exports = router;
+
