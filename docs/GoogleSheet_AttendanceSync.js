@@ -62,10 +62,20 @@ function doPost(e) {
       }
     });
     
-    // Create new Column for this Date & Period
+    // Create new Column for this Date & Period in the Section Tab
     var newCol = sheet.getLastColumn() + 1;
     var columnHeader = data.date + " (" + data.period + ")";
-    sheet.getRange(1, newCol).setValue(columnHeader).setFontWeight("bold").setBackground("#dbeafe").setHorizontalAlignment("center");
+    var headerCell = sheet.getRange(1, newCol);
+    headerCell.setValue(columnHeader).setFontWeight("bold").setBackground("#dbeafe").setHorizontalAlignment("center");
+    
+    // Add Topics Covered as Header Cell Note / Comment
+    var topics = (data.topics_covered || "").trim();
+    var noteText = "Period: " + data.period +
+      "\nSubject: " + (data.subject_name || "Subject") + " (" + (data.subject_code || "") + ")" +
+      "\nFaculty: " + (data.teacher_name || "Faculty") +
+      "\nTopics Covered: " + (topics || "None entered") +
+      "\nPresent: " + data.present_count + " | Absent: " + data.absent_count;
+    headerCell.setNote(noteText);
     
     // Mark P (Present) or A (Absent) for each student
     records.forEach(function(rec) {
@@ -92,12 +102,64 @@ function doPost(e) {
     // Auto resize column
     sheet.autoResizeColumn(newCol);
     
+    // --------------------------------------------------------------------------
+    // DEDICATED "Topics & Syllabus Log" EXCEL TAB
+    // --------------------------------------------------------------------------
+    var topicsSheet = ss.getSheetByName("Topics & Syllabus Log");
+    if (!topicsSheet) {
+      topicsSheet = ss.insertSheet("Topics & Syllabus Log");
+      topicsSheet.appendRow([
+        "Timestamp",
+        "Attendance Date",
+        "Period",
+        "Class & Section",
+        "Course Code",
+        "Subject Name",
+        "Faculty Member",
+        "Topics Covered in Period",
+        "Total Enrolled",
+        "Present Count",
+        "Absent Count",
+        "Attendance %"
+      ]);
+      topicsSheet.getRange(1, 1, 1, 12).setFontWeight("bold").setBackground("#dbeafe").setHorizontalAlignment("center");
+      topicsSheet.setFrozenRows(1);
+      topicsSheet.setFrozenColumns(4);
+    }
+    
+    var totalStd = Number(data.total_students) || records.length || 0;
+    var presCount = Number(data.present_count) || 0;
+    var absCount = Number(data.absent_count) || (totalStd - presCount);
+    var attPct = totalStd > 0 ? ((presCount / totalStd) * 100).toFixed(2) + "%" : "100.00%";
+    
+    topicsSheet.appendRow([
+      new Date(),
+      data.date,
+      data.period,
+      (data.class_name || "B.Tech IT") + " - " + sheetName,
+      data.subject_code || "—",
+      data.subject_name || "—",
+      data.teacher_name || "—",
+      topics || "Standard Curriculum / Lab Session",
+      totalStd,
+      presCount,
+      absCount,
+      attPct
+    ]);
+    
+    var lastLogRow = topicsSheet.getLastRow();
+    topicsSheet.getRange(lastLogRow, 1, 1, 12).setVerticalAlignment("middle");
+    topicsSheet.getRange(lastLogRow, 8).setWrap(true); // Wrap Topics Covered column
+    topicsSheet.autoResizeColumns(1, 12);
+    topicsSheet.setColumnWidth(8, 300); // Generous width for topics covered text
+    
     return ContentService.createTextOutput(JSON.stringify({
       status: "success",
-      message: "Attendance recorded in " + sheetName + " for " + columnHeader,
-      total: data.total_students,
-      present: data.present_count,
-      absent: data.absent_count
+      message: "Attendance and Topics Covered recorded in " + sheetName + " and Topics & Syllabus Log for " + columnHeader,
+      topics_covered: topics,
+      total: totalStd,
+      present: presCount,
+      absent: absCount
     })).setMimeType(ContentService.MimeType.JSON);
     
   } catch (err) {
@@ -111,6 +173,6 @@ function doPost(e) {
 function doGet(e) {
   return ContentService.createTextOutput(JSON.stringify({
     status: "active",
-    message: "Google Sheet Attendance Sync Webhook is running and ready to receive attendance."
+    message: "Google Sheet Attendance & Topics Covered Sync Webhook is active and running."
   })).setMimeType(ContentService.MimeType.JSON);
 }

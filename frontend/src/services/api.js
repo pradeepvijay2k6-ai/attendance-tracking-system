@@ -11,6 +11,8 @@ if (!rawBackendUrl.endsWith('/api')) {
 }
 const API_BASE_URL = rawBackendUrl;
 
+export const GOOGLE_SHEET_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbzQRkemCd9mFbnicFOs0fOXH931-BxkZj75t5drwy4FoWFlfGPHhEYCnc2pZyrhwXICiw/exec';
+
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -264,13 +266,14 @@ export async function submitAttendanceApi(payload) {
         records: formattedRecords
       };
 
-      await fetch(webhookUrl, {
+      await fetch(GOOGLE_SHEET_WEBHOOK_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(webhookPayload)
       });
       sheetSynced = true;
+      console.log('Google Sheets sync triggered successfully for session:', rpcData?.session_id);
     } catch (sheetErr) {
       console.warn('Direct Google Sheet sync notice:', sheetErr.message);
     }
@@ -728,6 +731,7 @@ export async function getAdminSessionsApi() {
       present_count,
       absent_count,
       status,
+      remarks,
       timetables (
         classes (name),
         sections (name),
@@ -736,7 +740,7 @@ export async function getAdminSessionsApi() {
       profiles (full_name)
     `)
     .order('attendance_date', { ascending: false })
-    .limit(20);
+    .limit(50);
 
   if (error) throw error;
   const mapped = (sessions || []).map(s => ({
@@ -747,6 +751,8 @@ export async function getAdminSessionsApi() {
     present_count: s.present_count,
     absent_count: s.absent_count,
     status: s.status,
+    remarks: s.remarks,
+    topics_covered: s.remarks,
     classes: s.timetables?.classes,
     sections: s.timetables?.sections,
     subjects: s.timetables?.subjects,
@@ -1109,7 +1115,6 @@ export async function adminOverrideStudentAttendanceApi({
 
     // 4. Sync immediately to Google Sheet Master Webhook
     try {
-      const webhookUrl = 'https://script.google.com/macros/s/AKfycbzQRkemCd9mFbnicFOs0fOXH931-BxkZj75t5drwy4FoWFlfGPHhEYCnc2pZyrhwXICiw/exec';
       const { data: allSectionStudents } = await supabase
         .from('students')
         .select('id, roll_no, register_no, full_name')
@@ -1143,7 +1148,7 @@ export async function adminOverrideStudentAttendanceApi({
 
       const teacherName = slotTeacher?.full_name || 'Admin / Faculty';
 
-      await fetch(webhookUrl, {
+      await fetch(GOOGLE_SHEET_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1157,6 +1162,7 @@ export async function adminOverrideStudentAttendanceApi({
           class_name: slot.classes?.name || 'B.Tech IT - 2025 Batch',
           section_name: slot.sections?.name || 'IT A',
           teacher_name: teacherName,
+          topics_covered: session.remarks || remarks || '',
           total_students: formattedRecords.length,
           present_count: formattedRecords.length - absentList.length,
           absent_count: absentList.length,

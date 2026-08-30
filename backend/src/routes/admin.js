@@ -548,6 +548,7 @@ router.get('/attendance-sessions', async (req, res) => {
         present_count,
         absent_count,
         status,
+        remarks,
         created_at,
         classes (name, code),
         sections (name),

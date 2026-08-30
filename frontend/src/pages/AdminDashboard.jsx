@@ -1335,8 +1335,64 @@ export default function AdminDashboard() {
         {activeTab === 'sessions' && (
           <div className="admin-section-card">
             <div className="section-toolbar">
-              <h2>Historical Attendance Logs</h2>
+              <div>
+                <h2>Historical Attendance & Topics Logs</h2>
+                <p style={{ color: '#64748b', fontSize: '0.85rem', marginTop: '2px' }}>
+                  Audited period attendance sessions with syllabus topics covered and Google Sheet sync logs.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <a
+                  href="https://docs.google.com/spreadsheets/d/1hr6niV60fj67sidkYEj7ausv6aoGUndR1wcakoVmRjo/edit"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="terminal-btn secondary"
+                  style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  📊 Live Google Sheet
+                </a>
+                <button
+                  className="terminal-btn primary"
+                  onClick={() => {
+                    if (sessionsList.length === 0) {
+                      alert('No attendance sessions found to export.');
+                      return;
+                    }
+                    const headers = ['Attendance Date', 'Period', 'Class & Section', 'Subject Name', 'Faculty Name', 'Topics Covered in Period', 'Total Students', 'Present Count', 'Absent Count', 'Attendance %'];
+                    const rows = sessionsList.map(s => {
+                      const total = s.total_students || ((s.present_count || 0) + (s.absent_count || 0));
+                      const pres = s.present_count || 0;
+                      const abs = s.absent_count || 0;
+                      const pct = total > 0 ? ((pres / total) * 100).toFixed(2) + '%' : '100%';
+                      const topics = (s.remarks || s.topics_covered || '—').replace(/"/g, '""');
+                      return [
+                        `"${s.attendance_date}"`,
+                        `"Period ${s.period_number}"`,
+                        `"${s.classes?.name || 'B.Tech IT'} (${s.sections?.name || 'IT'})"`,
+                        `"${s.subjects?.name || 'Subject'}"`,
+                        `"${s.profiles?.full_name || 'Faculty'}"`,
+                        `"${topics}"`,
+                        total,
+                        pres,
+                        abs,
+                        `"${pct}"`
+                      ].join(',');
+                    });
+                    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
+                    const encodedUri = encodeURI(csvContent);
+                    const link = document.createElement('a');
+                    link.setAttribute('href', encodedUri);
+                    link.setAttribute('download', `Attendance_and_Topics_Log_${new Date().toISOString().split('T')[0]}.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                >
+                  📥 Export Excel / CSV Log
+                </button>
+              </div>
             </div>
+
             <div className="table-responsive">
               <table className="admin-table">
                 <thead>
@@ -1346,6 +1402,7 @@ export default function AdminDashboard() {
                     <th>Class / Section</th>
                     <th>Subject</th>
                     <th>Conducted By</th>
+                    <th>Topics Covered</th>
                     <th>Present</th>
                     <th>Absent</th>
                     <th>Status</th>
@@ -1353,21 +1410,38 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sessionsList.map((s) => (
-                    <tr key={s.id}>
-                      <td><strong>{s.attendance_date}</strong></td>
-                      <td>Period {s.period_number}</td>
-                      <td>{s.classes?.name} ({s.sections?.name})</td>
-                      <td>{s.subjects?.name}</td>
-                      <td>{s.profiles?.full_name || 'Faculty'}</td>
-                      <td><span className="badge role-teacher">{s.present_count}</span></td>
-                      <td><span className="badge role-student" style={{ background: '#fee2e2', color: '#b91c1c' }}>{s.absent_count}</span></td>
-                      <td><span className="badge role-admin">{s.status}</span></td>
-                      <td>
-                        <button className="action-btn delete" onClick={() => handleDeleteSession(s.id)}>Delete Log</button>
+                  {sessionsList.length === 0 ? (
+                    <tr>
+                      <td colSpan="10" style={{ textAlign: 'center', padding: '2.5rem', color: '#64748b' }}>
+                        No attendance logs recorded yet.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    sessionsList.map((s) => (
+                      <tr key={s.id}>
+                        <td><strong>{s.attendance_date}</strong></td>
+                        <td><span className="period-badge">P{s.period_number}</span></td>
+                        <td>{s.classes?.name || 'B.Tech IT'} ({s.sections?.name || 'IT A'})</td>
+                        <td><strong>{s.subjects?.name || 'Subject'}</strong></td>
+                        <td>{s.profiles?.full_name || 'Faculty'}</td>
+                        <td style={{ maxWidth: '280px', fontSize: '0.84rem', color: '#334155' }}>
+                          {s.remarks || s.topics_covered ? (
+                            <span style={{ background: '#f1f5f9', padding: '4px 8px', borderRadius: '4px', display: 'inline-block' }}>
+                              📖 {s.remarks || s.topics_covered}
+                            </span>
+                          ) : (
+                            <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Standard Session</span>
+                          )}
+                        </td>
+                        <td><span className="badge role-teacher">{s.present_count}</span></td>
+                        <td><span className="badge role-student" style={{ background: '#fee2e2', color: '#b91c1c' }}>{s.absent_count}</span></td>
+                        <td><span className="badge role-admin">{s.status}</span></td>
+                        <td>
+                          <button className="action-btn delete" onClick={() => handleDeleteSession(s.id)}>Delete</button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
