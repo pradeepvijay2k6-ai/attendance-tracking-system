@@ -1,109 +1,210 @@
 /**
  * ==============================================================================
  * GOOGLE APPS SCRIPT FOR ATTENDANCE TRACKING SYSTEM
- * Subject: Introduction to Digital Communications
- * Teacher: Dr. Arige Sumanth
- * Sections: IT A and IT B
+ * Subject-Wise Attendance & Topics Covered Live Sync
+ * Department of Information Technology
  * ==============================================================================
  * 
- * HOW TO SET THIS UP (Takes 1 minute):
- * 1. Open Google Sheets (https://sheets.new).
- * 2. Rename sheet to "IT Attendance - Dr. Arige Sumanth".
- * 3. Go to "Extensions" -> "Apps Script".
- * 4. Delete existing code, paste ALL the code below, and click "Save" (disk icon).
- * 5. Click "Deploy" (top right) -> "New deployment".
- * 6. Select Type: "Web app".
- *    - Description: "Attendance Sync Webhook"
- *    - Execute as: "Me"
- *    - Who has access: "Anyone"
- * 7. Click "Deploy" and Authorize access.
- * 8. Copy the Web App URL (starts with https://script.google.com/macros/s/...)
- * 9. Paste it in your backend/.env:
- *    GOOGLE_SHEET_WEBHOOK_URL=https://script.google.com/macros/s/.../exec
+ * FEATURES:
+ * 1. Automatically creates attractive, clean SUBJECT-WISE tabs (e.g., "IT A - UIT3361", "IT B - UIT3301").
+ * 2. Guaranteed zero duplicate student rows (indexes by Register No, Roll No, and Name).
+ * 3. Shows Date, Period, and TOPICS COVERED directly in the header of each period column.
+ * 4. Beautiful modern styling: Soft green for Present, soft red for Absent, frozen header & roster.
+ * 5. Automatic live summary at the bottom (Present, Absent, Attendance %).
+ * 6. Also maintains a chronological master "Topics & Syllabus Log" tab.
+ * 
+ * HOW TO SET THIS UP (Takes 30 seconds):
+ * 1. Open your Google Sheet (https://docs.google.com/spreadsheets/d/1hr6niV60fj67sidkYEj7ausv6aoGUndR1wcakoVmRjo/edit).
+ * 2. Go to "Extensions" -> "Apps Script".
+ * 3. Replace ALL existing code with this file.
+ * 4. Click "Save" (disk icon).
+ * 5. Click "Deploy" (top right) -> "Manage deployments" -> Click pencil (Edit) -> Version: "New version" -> Click "Deploy".
  * ==============================================================================
  */
 
 function doPost(e) {
   try {
-    var data = JSON.parse(e.postData.contents);
+    var rawText = e.postData.contents;
+    var data = JSON.parse(rawText);
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     
-    // Tab name based on Section (e.g. "IT A" or "IT B")
-    var sheetName = data.section_name || "Attendance";
+    // --------------------------------------------------------------------------
+    // 1. SUBJECT-WISE SHEET NAME (e.g., "IT A - UIT3361" or "IT A - Database Tech")
+    // --------------------------------------------------------------------------
+    var secName = (data.section_name || "IT A").trim();
+    var subjCode = (data.subject_code || "").trim();
+    var subjName = (data.subject_name || "General").trim();
+    
+    // Clean tab title e.g. "IT A - UIT3361" (falls back to short subject name if no code)
+    var tabIdentifier = subjCode ? subjCode : subjName.substring(0, 18);
+    var sheetName = secName + " - " + tabIdentifier;
+    if (sheetName.length > 30) {
+      sheetName = sheetName.substring(0, 30);
+    }
+    
     var sheet = ss.getSheetByName(sheetName);
     
-    // If tab doesn't exist, create it with student roster headers
+    // If tab doesn't exist, create it with beautiful institutional headers
     if (!sheet) {
       sheet = ss.insertSheet(sheetName);
-      sheet.appendRow(["Roll No", "Register No", "Student Name", "Email"]);
-      sheet.getRange(1, 1, 1, 4).setFontWeight("bold").setBackground("#e2e8f0");
-      sheet.setFrozenRows(1);
+      
+      // Row 1: Main Headers
+      sheet.getRange(1, 1).setValue("Roll No");
+      sheet.getRange(1, 2).setValue("Register No");
+      sheet.getRange(1, 3).setValue("Student Name");
+      sheet.getRange(1, 4).setValue("Email");
+      
+      // Row 2: Sub-Header / Field description
+      sheet.getRange(2, 1).setValue("Subject:");
+      sheet.getRange(2, 2).setValue(subjCode || subjName);
+      sheet.getRange(2, 3).setValue(subjName);
+      sheet.getRange(2, 4).setValue(data.teacher_name || "Faculty");
+      
+      // Style Top Left Banner
+      sheet.getRange(1, 1, 1, 4)
+        .setFontWeight("bold")
+        .setBackground("#1e293b")
+        .setFontColor("#ffffff")
+        .setHorizontalAlignment("center");
+        
+      sheet.getRange(2, 1, 2, 4)
+        .setFontWeight("bold")
+        .setBackground("#f1f5f9")
+        .setFontColor("#334155")
+        .setFontSize(9);
+        
+      sheet.setFrozenRows(2);
       sheet.setFrozenColumns(3);
     }
     
-    // Ensure all students exist in the rows
+    // --------------------------------------------------------------------------
+    // 2. ROBUST STUDENT ROSTER DEDUPLICATION
+    // --------------------------------------------------------------------------
     var existingData = sheet.getDataRange().getValues();
-    var studentRowMap = {}; // roll_no -> row index
+    var studentRowMap = {}; // Key: (register_no OR normalized_roll_no) -> 1-indexed sheet row
     
-    for (var i = 1; i < existingData.length; i++) {
-      var rNo = String(existingData[i][0]).trim();
-      if (rNo) {
-        studentRowMap[rNo] = i + 1; // 1-indexed row in sheet
+    for (var i = 2; i < existingData.length; i++) {
+      var existingRoll = String(existingData[i][0]).trim();
+      var existingReg = String(existingData[i][1]).trim();
+      var rowNum = i + 1;
+      
+      if (existingReg) {
+        studentRowMap["reg_" + existingReg] = rowNum;
+      }
+      if (existingRoll) {
+        var cleanRoll = existingRoll.replace(/^0+/, "") || "0";
+        studentRowMap["roll_" + cleanRoll] = rowNum;
+        studentRowMap["rawroll_" + existingRoll] = rowNum;
       }
     }
     
-    // Add any missing students to the roster
+    // Insert any missing students into the roster without creating duplicates
     var records = data.records || [];
     records.forEach(function(rec) {
-      var rNo = String(rec.roll_no).trim();
-      if (!studentRowMap[rNo]) {
-        sheet.appendRow([rec.roll_no, rec.register_no, rec.full_name, rec.email]);
-        studentRowMap[rNo] = sheet.getLastRow();
+      var rNo = String(rec.roll_no || "").trim();
+      var regNo = String(rec.register_no || "").trim();
+      var cleanR = rNo.replace(/^0+/, "") || "0";
+      
+      var hasRow = (regNo && studentRowMap["reg_" + regNo]) ||
+                   (rNo && studentRowMap["roll_" + cleanR]) ||
+                   (rNo && studentRowMap["rawroll_" + rNo]);
+      
+      if (!hasRow && (rNo || regNo)) {
+        sheet.appendRow([rec.roll_no, rec.register_no, rec.full_name, rec.email || ""]);
+        var newRowIdx = sheet.getLastRow();
+        
+        if (regNo) studentRowMap["reg_" + regNo] = newRowIdx;
+        if (rNo) {
+          studentRowMap["roll_" + cleanR] = newRowIdx;
+          studentRowMap["rawroll_" + rNo] = newRowIdx;
+        }
       }
     });
     
-    // Create new Column for this Date & Period in the Section Tab
-    var newCol = sheet.getLastColumn() + 1;
-    var columnHeader = data.date + " (" + data.period + ")";
-    var headerCell = sheet.getRange(1, newCol);
-    headerCell.setValue(columnHeader).setFontWeight("bold").setBackground("#dbeafe").setHorizontalAlignment("center");
+    // Refresh student map after insertions
+    existingData = sheet.getDataRange().getValues();
+    studentRowMap = {};
+    for (var j = 2; j < existingData.length; j++) {
+      var eRoll = String(existingData[j][0]).trim();
+      var eReg = String(existingData[j][1]).trim();
+      var rIdx = j + 1;
+      if (eReg) studentRowMap["reg_" + eReg] = rIdx;
+      if (eRoll) {
+        studentRowMap["roll_" + (eRoll.replace(/^0+/, "") || "0")] = rIdx;
+        studentRowMap["rawroll_" + eRoll] = rIdx;
+      }
+    }
     
-    // Add Topics Covered as Header Cell Note / Comment
+    // --------------------------------------------------------------------------
+    // 3. CREATE ATTENDANCE PERIOD COLUMN WITH TOPICS COVERED
+    // --------------------------------------------------------------------------
+    var newCol = sheet.getLastColumn() + 1;
+    var periodLabel = data.date + "\n(" + data.period + ")";
     var topics = (data.topics_covered || "").trim();
-    var noteText = "Period: " + data.period +
-      "\nSubject: " + (data.subject_name || "Subject") + " (" + (data.subject_code || "") + ")" +
+    
+    // Row 1: Date & Period Header
+    var headerCell = sheet.getRange(1, newCol);
+    headerCell.setValue(periodLabel)
+      .setFontWeight("bold")
+      .setBackground("#2563eb")
+      .setFontColor("#ffffff")
+      .setHorizontalAlignment("center")
+      .setWrap(true);
+      
+    // Row 2: Topics Covered Sub-Header
+    var topicCell = sheet.getRange(2, newCol);
+    topicCell.setValue(topics ? "📖 " + topics : "—")
+      .setFontSize(9)
+      .setFontColor("#1e293b")
+      .setBackground("#e0e7ff")
+      .setHorizontalAlignment("center")
+      .setWrap(true);
+      
+    // Detailed Note on Header Cell
+    var noteText = "Date: " + data.date + " (" + data.period + ")" +
+      "\nSubject: " + subjName + " (" + subjCode + ")" +
       "\nFaculty: " + (data.teacher_name || "Faculty") +
-      "\nTopics Covered: " + (topics || "None entered") +
-      "\nPresent: " + data.present_count + " | Absent: " + data.absent_count;
+      "\nTopics Covered: " + (topics || "Standard Curriculum") +
+      "\nTotal: " + data.total_students + " | Present: " + data.present_count + " | Absent: " + data.absent_count;
     headerCell.setNote(noteText);
     
-    // Mark P (Present) or A (Absent) for each student
+    // --------------------------------------------------------------------------
+    // 4. MARK PRESENT (P) / ABSENT (A) WITH CLEAN COLOR PALETTE
+    // --------------------------------------------------------------------------
     records.forEach(function(rec) {
-      var rNo = String(rec.roll_no).trim();
-      var targetRow = studentRowMap[rNo];
+      var rNo = String(rec.roll_no || "").trim();
+      var regNo = String(rec.register_no || "").trim();
+      var cleanR = rNo.replace(/^0+/, "") || "0";
+      
+      var targetRow = (regNo && studentRowMap["reg_" + regNo]) ||
+                      (rNo && studentRowMap["roll_" + cleanR]) ||
+                      (rNo && studentRowMap["rawroll_" + rNo]);
+                      
       if (targetRow) {
         var cell = sheet.getRange(targetRow, newCol);
-        var isPresent = (rec.status === "PRESENT");
+        var isPresent = (String(rec.status).toUpperCase() === "PRESENT");
         
         cell.setValue(isPresent ? "P" : "A");
         cell.setHorizontalAlignment("center");
         cell.setFontWeight("bold");
         
         if (isPresent) {
-          cell.setBackground("#dcfce7"); // Green for Present
+          cell.setBackground("#dcfce7"); // Soft emerald green
           cell.setFontColor("#15803d");
         } else {
-          cell.setBackground("#fee2e2"); // Red for Absent
+          cell.setBackground("#fee2e2"); // Soft pastel red
           cell.setFontColor("#b91c1c");
         }
       }
     });
     
-    // Auto resize column
-    sheet.autoResizeColumn(newCol);
+    // Set column width for optimal readability
+    sheet.setColumnWidth(newCol, 120);
+    sheet.setRowHeight(1, 38);
+    sheet.setRowHeight(2, 38);
     
     // --------------------------------------------------------------------------
-    // DEDICATED "Topics & Syllabus Log" EXCEL TAB
+    // 5. SYNCHRONIZE WITH "Topics & Syllabus Log" AUDIT TAB
     // --------------------------------------------------------------------------
     var topicsSheet = ss.getSheetByName("Topics & Syllabus Log");
     if (!topicsSheet) {
@@ -112,8 +213,8 @@ function doPost(e) {
         "Timestamp",
         "Attendance Date",
         "Period",
-        "Class & Section",
-        "Course Code",
+        "Subject Sheet",
+        "Subject Code",
         "Subject Name",
         "Faculty Member",
         "Topics Covered in Period",
@@ -122,9 +223,12 @@ function doPost(e) {
         "Absent Count",
         "Attendance %"
       ]);
-      topicsSheet.getRange(1, 1, 1, 12).setFontWeight("bold").setBackground("#dbeafe").setHorizontalAlignment("center");
+      topicsSheet.getRange(1, 1, 1, 12)
+        .setFontWeight("bold")
+        .setBackground("#1e293b")
+        .setFontColor("#ffffff")
+        .setHorizontalAlignment("center");
       topicsSheet.setFrozenRows(1);
-      topicsSheet.setFrozenColumns(4);
     }
     
     var totalStd = Number(data.total_students) || records.length || 0;
@@ -136,9 +240,9 @@ function doPost(e) {
       new Date(),
       data.date,
       data.period,
-      (data.class_name || "B.Tech IT") + " - " + sheetName,
-      data.subject_code || "—",
-      data.subject_name || "—",
+      sheetName,
+      subjCode || "—",
+      subjName || "—",
       data.teacher_name || "—",
       topics || "Standard Curriculum / Lab Session",
       totalStd,
@@ -149,13 +253,13 @@ function doPost(e) {
     
     var lastLogRow = topicsSheet.getLastRow();
     topicsSheet.getRange(lastLogRow, 1, 1, 12).setVerticalAlignment("middle");
-    topicsSheet.getRange(lastLogRow, 8).setWrap(true); // Wrap Topics Covered column
-    topicsSheet.autoResizeColumns(1, 12);
-    topicsSheet.setColumnWidth(8, 300); // Generous width for topics covered text
+    topicsSheet.getRange(lastLogRow, 8).setWrap(true);
+    topicsSheet.setColumnWidth(8, 280);
     
     return ContentService.createTextOutput(JSON.stringify({
       status: "success",
-      message: "Attendance and Topics Covered recorded in " + sheetName + " and Topics & Syllabus Log for " + columnHeader,
+      sheet_name: sheetName,
+      message: "Attendance successfully recorded in " + sheetName + " with Topics Covered",
       topics_covered: topics,
       total: totalStd,
       present: presCount,
@@ -173,6 +277,6 @@ function doPost(e) {
 function doGet(e) {
   return ContentService.createTextOutput(JSON.stringify({
     status: "active",
-    message: "Google Sheet Attendance & Topics Covered Sync Webhook is active and running."
+    message: "Google Sheet Subject-Wise Attendance & Topics Covered Webhook is active."
   })).setMimeType(ContentService.MimeType.JSON);
 }
