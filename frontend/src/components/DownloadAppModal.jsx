@@ -95,13 +95,18 @@ export default function DownloadAppModal({ isOpen, onClose }) {
       <div style={overlay} onClick={onClose}>
         <div style={sheet} onClick={e => e.stopPropagation()}>
           <div style={{ textAlign: 'center', padding: '8px 0 16px' }}>
-            <div style={{ fontSize: '3.5rem', marginBottom: '12px' }}>✅</div>
-            <h2 style={{ fontSize: '1.3rem', fontWeight: '800', margin: '0 0 8px' }}>App Installed!</h2>
+            <div style={{ display: 'inline-flex', padding: '16px', borderRadius: '50%', background: 'rgba(16,185,129,0.15)', color: '#10b981', marginBottom: '16px' }}>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+            </div>
+            <h2 style={{ fontSize: '1.3rem', fontWeight: '800', margin: '0 0 8px' }}>App Installed</h2>
             <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 24px' }}>
-              SSN IT Attendance is already installed on your device. You're all set!
+              SSN IT Attendance is already installed on your device.
             </p>
             <button onClick={onClose} style={primaryBtn('#059669')}>
-              <span>🎉</span> Continue to Dashboard
+              Continue to Dashboard
             </button>
           </div>
         </div>
@@ -115,15 +120,19 @@ export default function DownloadAppModal({ isOpen, onClose }) {
       <div style={overlay} onClick={onClose}>
         <div style={sheet} onClick={e => e.stopPropagation()}>
           <div style={{ textAlign: 'center', padding: '8px 0 16px' }}>
-            <div style={{ fontSize: '3.5rem', marginBottom: '12px' }}>🎉</div>
-            <h2 style={{ fontSize: '1.3rem', fontWeight: '800', margin: '0 0 8px' }}>Done!</h2>
+            <div style={{ display: 'inline-flex', padding: '16px', borderRadius: '50%', background: 'rgba(16,185,129,0.15)', color: '#10b981', marginBottom: '16px' }}>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <h2 style={{ fontSize: '1.3rem', fontWeight: '800', margin: '0 0 8px' }}>Setup Complete</h2>
             <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 24px' }}>
               {os?.isAndroid || os?.isIOS
                 ? 'SSN IT Attendance has been added to your home screen.'
                 : 'Your download has started. Open the file to install.'}
             </p>
             <button onClick={onClose} style={primaryBtn('#059669')}>
-              <span>✓</span> Got it
+              Done
             </button>
           </div>
         </div>
@@ -142,9 +151,9 @@ export default function DownloadAppModal({ isOpen, onClose }) {
           <h2 style={{ fontSize: '1.1rem', fontWeight: '800', margin: '0 0 16px' }}>Install via Chrome</h2>
           {[
             { n: '1', text: 'Open this site in Chrome' },
-            { n: '2', text: 'Tap the ⋮ menu at the top right' },
+            { n: '2', text: 'Tap the menu icon (three dots) at top right' },
             { n: '3', text: 'Tap "Install app" or "Add to Home Screen"' },
-            { n: '4', text: 'Tap Install — done! ✓' },
+            { n: '4', text: 'Tap Install to complete setup' },
           ].map(({ n, text }) => (
             <div key={n} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', marginBottom: '14px' }}>
               <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#1e3a5f', border: '1px solid #38bdf8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: '800', color: '#38bdf8', flexShrink: 0 }}>{n}</div>
@@ -152,7 +161,7 @@ export default function DownloadAppModal({ isOpen, onClose }) {
             </div>
           ))}
           <button onClick={onClose} style={{ ...primaryBtn('#2563eb'), marginTop: '8px' }}>
-            <span>✓</span> Got it
+            Got it
           </button>
         </div>
       </div>
@@ -169,12 +178,15 @@ export default function DownloadAppModal({ isOpen, onClose }) {
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '24px' }}>
-          <div style={{ width: '52px', height: '52px', borderRadius: '16px', background: 'linear-gradient(135deg, #0284c7, #2563eb)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', flexShrink: 0 }}>
-            📚
+          <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+            </svg>
           </div>
           <div>
             <h2 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0 }}>SSN IT Attendance</h2>
-            <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '2px 0 0' }}>Install on this device</p>
+            <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '2px 0 0' }}>Institutional Mobile & Desktop App</p>
           </div>
           <button onClick={onClose} style={{ marginLeft: 'auto', background: 'rgba(255,255,255,0.06)', border: 'none', color: '#94a3b8', width: '34px', height: '34px', borderRadius: '50%', fontSize: '1rem', cursor: 'pointer', flexShrink: 0 }}>✕</button>
         </div>
@@ -183,38 +195,47 @@ export default function DownloadAppModal({ isOpen, onClose }) {
         {os?.isIOS && (
           <div style={{ background: '#1e293b', borderRadius: '16px', padding: '18px', marginBottom: '16px' }}>
             <p style={{ fontSize: '0.9rem', color: '#cbd5e1', lineHeight: 1.6, margin: 0 }}>
-              On iPhone/iPad: tap the <strong style={{ color: '#fff' }}>Share</strong> button <strong style={{ color: '#38bdf8' }}>⎋</strong> in Safari, then tap <strong style={{ color: '#fff' }}>"Add to Home Screen"</strong>.
+              On iPhone/iPad: tap the <strong style={{ color: '#fff' }}>Share</strong> button in Safari, then select <strong style={{ color: '#38bdf8' }}>"Add to Home Screen"</strong>.
             </p>
           </div>
         )}
 
         {os?.isAndroid && (
           <button onClick={handleInstall} style={primaryBtn('#059669')}>
-            <span>🤖</span> Install on Android
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+              <line x1="12" y1="18" x2="12.01" y2="18" />
+            </svg>
+            <span>Install on Android</span>
           </button>
         )}
 
         {!os?.isIOS && !os?.isAndroid && os?.file && (
           <button onClick={() => triggerDownload(os.file, os.name)} style={primaryBtn('#2563eb')}>
-            <span>⬇️</span> Download for {os?.name}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span>Download for {os?.name}</span>
           </button>
         )}
 
         {/* Divider */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '20px 0' }}>
           <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.07)' }} />
-          <span style={{ fontSize: '0.72rem', color: '#475569', whiteSpace: 'nowrap' }}>OTHER PLATFORMS</span>
+          <span style={{ fontSize: '0.72rem', color: '#475569', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>AVAILABLE PLATFORMS</span>
           <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.07)' }} />
         </div>
 
         {/* Platform grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
           {[
-            { icon: '🍏', label: 'macOS', sub: 'Desktop App', file: '/downloads/SSN-Attendance-macOS.zip' },
-            { icon: '🪟', label: 'Windows', sub: 'Desktop App', file: '/downloads/SSN-Attendance-Windows.zip' },
-            { icon: '🤖', label: 'Android', sub: 'Home Screen', action: handleInstall },
-            { icon: '🍎', label: 'iOS', sub: 'Add to Home Screen', action: () => setStep('guide') },
-          ].map(({ icon, label, sub, file, action }) => (
+            { label: 'macOS', sub: 'Desktop App', file: '/downloads/SSN-Attendance-macOS.zip' },
+            { label: 'Windows', sub: 'Desktop App', file: '/downloads/SSN-Attendance-Windows.zip' },
+            { label: 'Android', sub: 'PWA Mobile App', action: handleInstall },
+            { label: 'iOS', sub: 'Safari Web App', action: () => setStep('guide') },
+          ].map(({ label, sub, file, action }) => (
             <button
               key={label}
               onClick={() => action ? action() : triggerDownload(file, label)}
@@ -226,7 +247,7 @@ export default function DownloadAppModal({ isOpen, onClose }) {
                 textAlign: 'left',
               }}
             >
-              <span style={{ fontSize: '1.4rem' }}>{icon}</span>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38bdf8' }} />
               <div>
                 <div style={{ fontWeight: '700', fontSize: '0.85rem' }}>{label}</div>
                 <div style={{ fontSize: '0.7rem', color: '#38bdf8' }}>{sub}</div>
@@ -235,8 +256,8 @@ export default function DownloadAppModal({ isOpen, onClose }) {
           ))}
         </div>
 
-        <p style={{ textAlign: 'center', fontSize: '0.72rem', color: '#334155', marginTop: '20px', marginBottom: 0 }}>
-          SSN College of Engineering · IT Department
+        <p style={{ textAlign: 'center', fontSize: '0.72rem', color: '#64748b', marginTop: '20px', marginBottom: 0 }}>
+          SSN College of Engineering · Department of Information Technology
         </p>
       </div>
     </div>

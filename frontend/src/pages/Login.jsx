@@ -52,21 +52,47 @@ export default function Login() {
     }
   };
 
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutTimer, setLockoutTimer] = useState(0);
+
+  useEffect(() => {
+    let interval;
+    if (lockoutTimer > 0) {
+      interval = setInterval(() => {
+        setLockoutTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [lockoutTimer]);
+
   const handleAdminLogin = async (e) => {
     e.preventDefault();
+    if (lockoutTimer > 0) {
+      setError(`Security lockout active. Please wait ${lockoutTimer}s before retrying.`);
+      return;
+    }
+
     if (!adminPasskey.trim()) {
       setError('Please enter the Admin Passkey.');
       return;
     }
 
     if (adminPasskey.trim() !== 'IT@123') {
-      setError('Invalid Admin Passkey. Access restricted to authorized administrators.');
+      const nextAttempts = failedAttempts + 1;
+      setFailedAttempts(nextAttempts);
+      if (nextAttempts >= 5) {
+        setLockoutTimer(30);
+        setError('Too many failed attempts. Security lockout enabled for 30 seconds.');
+      } else {
+        setError(`Invalid Admin Passkey. ${5 - nextAttempts} attempt(s) remaining.`);
+      }
       return;
     }
 
     try {
       setLoading(true);
       setError('');
+      setFailedAttempts(0);
       sessionStorage.setItem('admin_passcode', 'IT@123');
       sessionStorage.setItem('target_portal', 'admin');
       sessionStorage.setItem('admin_authenticated', 'true');
@@ -249,7 +275,11 @@ export default function Login() {
                   transition: 'all 0.2s'
                 }}
               >
-                <span>📥</span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
                 <span>Download App for {userOS.name}</span>
               </button>
             </div>
