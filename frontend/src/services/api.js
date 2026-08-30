@@ -246,7 +246,6 @@ export async function submitAttendanceApi(payload) {
         status: absentSet.has(s.id) ? 'ABSENT' : 'PRESENT'
       }));
 
-      const webhookUrl = 'https://script.google.com/macros/s/AKfycbzQRkemCd9mFbnicFOs0fOXH931-BxkZj75t5drwy4FoWFlfGPHhEYCnc2pZyrhwXICiw/exec';
       const webhookPayload = {
         action: 'UPDATE_ATTENDANCE',
         session_id: rpcData?.session_id,
@@ -258,6 +257,7 @@ export async function submitAttendanceApi(payload) {
         class_name: slot?.classes?.name || 'B.Tech IT - 2025 Batch',
         section_name: sectionName,
         teacher_name: teacherName,
+        topics_covered: payload.topics_covered || '',
         total_students: formattedRecords.length || rpcData?.total_students || 71,
         present_count: rpcData?.present_count,
         absent_count: rpcData?.absent_count,
@@ -273,6 +273,17 @@ export async function submitAttendanceApi(payload) {
       sheetSynced = true;
     } catch (sheetErr) {
       console.warn('Direct Google Sheet sync notice:', sheetErr.message);
+    }
+
+    if (rpcData?.session_id && payload.topics_covered) {
+      try {
+        await supabase
+          .from('attendance_sessions')
+          .update({ remarks: payload.topics_covered })
+          .eq('id', rpcData.session_id);
+      } catch (remErr) {
+        console.warn('Could not update session remarks:', remErr.message);
+      }
     }
 
     return {

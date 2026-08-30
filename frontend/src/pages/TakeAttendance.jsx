@@ -20,6 +20,7 @@ export default function TakeAttendance() {
   const [students, setStudents] = useState([]);
   const [absentStudentIds, setAbsentStudentIds] = useState(new Set());
   const [searchQuery, setSearchQuery] = useState('');
+  const [topicsCovered, setTopicsCovered] = useState('');
   
   const [loadingSchedule, setLoadingSchedule] = useState(false);
   const [loadingStudents, setLoadingStudents] = useState(false);
@@ -39,6 +40,7 @@ export default function TakeAttendance() {
         setSelectedSlot(null);
         setStudents([]);
         setAbsentStudentIds(new Set());
+        setTopicsCovered('');
 
         const data = await getTodayTeacherClasses(selectedDate);
         if (!isMounted) return;
@@ -81,6 +83,7 @@ export default function TakeAttendance() {
         setLoadingStudents(true);
         setAbsentStudentIds(new Set());
         setFeedback(null);
+        setTopicsCovered(selectedSlot?.attendance_session?.remarks || '');
 
         const data = await getTimetableStudents(selectedSlot.id);
         if (isMounted) {
@@ -156,7 +159,8 @@ export default function TakeAttendance() {
       const payload = {
         timetable_id: selectedSlot.id,
         attendance_date: selectedDate,
-        absent_student_ids: Array.from(absentStudentIds)
+        absent_student_ids: Array.from(absentStudentIds),
+        topics_covered: topicsCovered.trim()
       };
 
       const response = await submitAttendanceApi(payload);
@@ -424,6 +428,33 @@ export default function TakeAttendance() {
               ) : (
                 <p style={{ color: '#16a34a', fontSize: '0.9rem' }}>All students marked PRESENT.</p>
               )}
+            </div>
+
+            {/* Topics Covered Input Box */}
+            <div className="form-group" style={{ margin: '16px 0 6px 0', textAlign: 'left' }}>
+              <label style={{ fontWeight: '700', fontSize: '0.88rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>📖</span> Topics Covered in this Period
+              </label>
+              <textarea
+                rows="3"
+                value={topicsCovered}
+                onChange={(e) => setTopicsCovered(e.target.value)}
+                placeholder="e.g. Unit 2: SQL Joins, Aggregation Functions, Group By queries, and practical lab exercises."
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  border: '1.5px solid #cbd5e1',
+                  fontSize: '0.88rem',
+                  marginTop: '6px',
+                  fontFamily: 'inherit',
+                  resize: 'vertical',
+                  background: '#f8fafc'
+                }}
+              />
+              <small style={{ color: '#64748b', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
+                Enter syllabus topics, chapter concepts, or laboratory experiments covered today.
+              </small>
             </div>
 
             <div className="modal-actions">
