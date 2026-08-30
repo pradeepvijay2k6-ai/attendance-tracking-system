@@ -69,31 +69,18 @@ function doPost(e) {
     sheet.getRange(2, 5).setValue("Conducted");
     sheet.getRange(2, 6).setValue("Cumulative %");
     
-    // Styling Row 1 (Headers)
-    sheet.getRange(1, 1, 1, 3)
+    // Row 1 Styling: Clean Solid Black Background for All Header Cells
+    sheet.getRange(1, 1, 1, 6)
       .setFontWeight("bold")
-      .setBackground("#1e293b") // Dark Slate
+      .setBackground("#000000") // Solid Black
       .setFontColor("#ffffff")
       .setHorizontalAlignment("center");
       
-    sheet.getRange(1, 4, 1, 6)
+    // Row 2 Styling: Clean Minimal Light Gray Sub-Header
+    sheet.getRange(2, 1, 2, 6)
       .setFontWeight("bold")
-      .setBackground("#0369a1") // Deep Blue Summary
-      .setFontColor("#ffffff")
-      .setHorizontalAlignment("center");
-      
-    // Styling Row 2 (Sub-Headers)
-    sheet.getRange(2, 1, 2, 3)
-      .setFontWeight("bold")
-      .setBackground("#f1f5f9")
-      .setFontColor("#334155")
-      .setFontSize(9)
-      .setHorizontalAlignment("center");
-      
-    sheet.getRange(2, 4, 2, 6)
-      .setFontWeight("bold")
-      .setBackground("#e0f2fe")
-      .setFontColor("#0369a1")
+      .setBackground("#f4f4f5")
+      .setFontColor("#18181b")
       .setFontSize(9)
       .setHorizontalAlignment("center");
       
@@ -178,21 +165,21 @@ function doPost(e) {
       targetCol = Math.max(maxCols + 1, 7);
     }
     
-    // Row 1: Date & Period Header
+    // Row 1: Date & Period Header (Solid Black)
     var headerCell = sheet.getRange(1, targetCol);
     headerCell.setValue(periodLabel)
       .setFontWeight("bold")
-      .setBackground("#2563eb") // Royal Blue
+      .setBackground("#000000") // Solid Black
       .setFontColor("#ffffff")
       .setHorizontalAlignment("center")
       .setWrap(true);
       
-    // Row 2: Topics Covered Sub-Header
+    // Row 2: Topics Covered Sub-Header (Clean Light Gray)
     var topicCell = sheet.getRange(2, targetCol);
     topicCell.setValue(topics ? "📖 " + topics : "—")
       .setFontSize(9)
-      .setFontColor("#1e293b")
-      .setBackground("#e0e7ff") // Soft Lavender
+      .setFontColor("#18181b")
+      .setBackground("#f4f4f5")
       .setHorizontalAlignment("center")
       .setWrap(true);
       
@@ -235,29 +222,22 @@ function doPost(e) {
     });
     
     // --------------------------------------------------------------------------
-    // 6. UPDATE ATTENDANCE TOTALS & PERCENTAGE FORMULAS (COLUMNS D, E, F)
+    // 6. HIGH-PERFORMANCE BATCH FORMULAS FOR TOTALS & % (INSTANT EXECUTION)
     // --------------------------------------------------------------------------
     var totalStudentRows = sheet.getLastRow();
-    if (totalStudentRows >= 3) {
+    var numStudents = totalStudentRows - 2;
+    if (numStudents > 0) {
+      var formulaBatch = [];
       for (var r = 3; r <= totalStudentRows; r++) {
-        // Col D: Attended Count (=COUNTIF(G3:ZZ3, "P"))
-        sheet.getRange(r, 4).setFormula('=COUNTIF(G' + r + ':ZZ' + r + ', "P")')
-          .setHorizontalAlignment("center")
-          .setFontWeight("bold")
-          .setFontColor("#15803d");
-          
-        // Col E: Total Conducted (=COUNTIF(G3:ZZ3, "P") + COUNTIF(G3:ZZ3, "A"))
-        sheet.getRange(r, 5).setFormula('=(COUNTIF(G' + r + ':ZZ' + r + ', "P") + COUNTIF(G' + r + ':ZZ' + r + ', "A"))')
-          .setHorizontalAlignment("center")
-          .setFontWeight("bold")
-          .setFontColor("#334155");
-          
-        // Col F: Attendance % (=IF(E3>0, D3/E3, 1))
-        sheet.getRange(r, 6).setFormula('=IF(E' + r + '>0, D' + r + '/E' + r + ', 1)')
-          .setHorizontalAlignment("center")
-          .setFontWeight("bold")
-          .setNumberFormat("0.0%");
+        formulaBatch.push([
+          '=COUNTIF(G' + r + ':ZZ' + r + ', "P")',
+          '=(COUNTIF(G' + r + ':ZZ' + r + ', "P") + COUNTIF(G' + r + ':ZZ' + r + ', "A"))',
+          '=IF(E' + r + '>0, D' + r + '/E' + r + ', 1)'
+        ]);
       }
+      sheet.getRange(3, 4, numStudents, 3).setFormulas(formulaBatch);
+      sheet.getRange(3, 4, numStudents, 2).setHorizontalAlignment("center").setFontWeight("bold");
+      sheet.getRange(3, 6, numStudents, 1).setHorizontalAlignment("center").setFontWeight("bold").setNumberFormat("0.0%");
     }
     
     // Set Clean Standard Column Widths
@@ -343,28 +323,37 @@ function fixAllSheetHeaders() {
     sheet.getRange(1, 5).setValue("Total Classes");
     sheet.getRange(1, 6).setValue("Attendance %");
     
-    sheet.getRange(1, 1, 1, 3)
+    // Solid Black Header
+    sheet.getRange(1, 1, 1, 6)
       .setFontWeight("bold")
-      .setBackground("#1e293b")
+      .setBackground("#000000")
       .setFontColor("#ffffff")
       .setHorizontalAlignment("center");
       
-    sheet.getRange(1, 4, 1, 6)
+    sheet.getRange(2, 1, 2, 6)
       .setFontWeight("bold")
-      .setBackground("#0369a1")
-      .setFontColor("#ffffff")
+      .setBackground("#f4f4f5")
+      .setFontColor("#18181b")
+      .setFontSize(9)
       .setHorizontalAlignment("center");
       
     sheet.setFrozenRows(2);
     sheet.setFrozenColumns(0);
     
     var lastRow = sheet.getLastRow();
-    if (lastRow >= 3) {
+    var numStudents = lastRow - 2;
+    if (numStudents > 0) {
+      var batch = [];
       for (var r = 3; r <= lastRow; r++) {
-        sheet.getRange(r, 4).setFormula('=COUNTIF(G' + r + ':ZZ' + r + ', "P")');
-        sheet.getRange(r, 5).setFormula('=(COUNTIF(G' + r + ':ZZ' + r + ', "P") + COUNTIF(G' + r + ':ZZ' + r + ', "A"))');
-        sheet.getRange(r, 6).setFormula('=IF(E' + r + '>0, D' + r + '/E' + r + ', 1)').setNumberFormat("0.0%");
+        batch.push([
+          '=COUNTIF(G' + r + ':ZZ' + r + ', "P")',
+          '=(COUNTIF(G' + r + ':ZZ' + r + ', "P") + COUNTIF(G' + r + ':ZZ' + r + ', "A"))',
+          '=IF(E' + r + '>0, D' + r + '/E' + r + ', 1)'
+        ]);
       }
+      sheet.getRange(3, 4, numStudents, 3).setFormulas(batch);
+      sheet.getRange(3, 4, numStudents, 2).setHorizontalAlignment("center").setFontWeight("bold");
+      sheet.getRange(3, 6, numStudents, 1).setHorizontalAlignment("center").setFontWeight("bold").setNumberFormat("0.0%");
     }
   });
 }
