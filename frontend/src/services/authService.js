@@ -69,11 +69,12 @@ export async function getUserProfile(userId) {
   if (!userId) return null;
 
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    const userEmail = (user?.email || '').toLowerCase().trim();
+    const allowedAdmins = (import.meta.env.VITE_ALLOWED_ADMIN_EMAILS || 'pradeepvijay2k6@gmail.com,clutchforever999@gmail.com')
+      .split(',')
+      .map((e) => e.trim().toLowerCase());
 
     const isDrSumanth = userEmail === 'arigesumanth@gmail.com' || userEmail === 'arigesu@ssn.edu.in';
-    const isAdminUser = userEmail === 'pradeepvijay2k6@gmail.com' || userEmail === 'clutchforever999@gmail.com';
+    const isAdminUser = allowedAdmins.includes(userEmail);
 
     // Fetch existing profile by userId
     const { data: profile } = await supabase

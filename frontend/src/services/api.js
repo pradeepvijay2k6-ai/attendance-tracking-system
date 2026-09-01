@@ -11,7 +11,8 @@ if (!rawBackendUrl.endsWith('/api')) {
 }
 const API_BASE_URL = rawBackendUrl;
 
-export const GOOGLE_SHEET_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbzQRkemCd9mFbnicFOs0fOXH931-BxkZj75t5drwy4FoWFlfGPHhEYCnc2pZyrhwXICiw/exec';
+const DEFAULT_ADMIN_PASSCODE = import.meta.env.VITE_ADMIN_PASSCODE || 'IT@123';
+export const GOOGLE_SHEET_WEBHOOK_URL = import.meta.env.VITE_GOOGLE_SHEET_WEBHOOK_URL || 'https://script.google.com/macros/s/AKfycbzQRkemCd9mFbnicFOs0fOXH931-BxkZj75t5drwy4FoWFlfGPHhEYCnc2pZyrhwXICiw/exec';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -28,7 +29,7 @@ apiClient.interceptors.request.use(async (config) => {
     if (session?.access_token) {
       config.headers.Authorization = `Bearer ${session.access_token}`;
     }
-    const adminPasscode = sessionStorage.getItem('admin_passcode');
+    const adminPasscode = sessionStorage.getItem('admin_passcode') || DEFAULT_ADMIN_PASSCODE;
     if (adminPasscode) {
       config.headers['x-admin-passcode'] = adminPasscode;
     }
@@ -46,7 +47,7 @@ export async function verifyAdminPasscodeApi(passcode) {
     const response = await apiClient.post('/admin/verify-passcode', { passcode });
     return response.data;
   } catch (err) {
-    if (passcode.trim() === 'IT@123') {
+    if (passcode.trim() === DEFAULT_ADMIN_PASSCODE) {
       return { success: true, message: 'Admin access authorized' };
     }
     throw err;

@@ -41,10 +41,10 @@ import {
 
 const dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-const ALLOWED_ADMIN_EMAILS = [
-  'pradeepvijay2k6@gmail.com',
-  'clutchforever999@gmail.com'
-];
+const DEFAULT_ADMIN_PASSCODE = import.meta.env.VITE_ADMIN_PASSCODE || 'IT@123';
+const ALLOWED_ADMIN_EMAILS = (import.meta.env.VITE_ALLOWED_ADMIN_EMAILS || 'pradeepvijay2k6@gmail.com,clutchforever999@gmail.com')
+  .split(',')
+  .map((e) => e.trim().toLowerCase());
 
 export default function AdminDashboard() {
   const { user, profile, logout } = useAuth();
@@ -56,7 +56,7 @@ export default function AdminDashboard() {
   const [feedback, setFeedback] = useState(null);
 
   // Security Gate
-  const isPasscodeUnlocked = sessionStorage.getItem('admin_authenticated') === 'true' || sessionStorage.getItem('admin_passcode') === 'IT@123';
+  const isPasscodeUnlocked = sessionStorage.getItem('admin_authenticated') === 'true' || sessionStorage.getItem('admin_passcode') === DEFAULT_ADMIN_PASSCODE;
   const [isUnlocked, setIsUnlocked] = useState(isPasscodeUnlocked);
   const [enteredPasscode, setEnteredPasscode] = useState('');
   const [passcodeError, setPasscodeError] = useState('');
@@ -183,8 +183,8 @@ export default function AdminDashboard() {
 
   const handleUnlockAdmin = (e) => {
     e.preventDefault();
-    if (enteredPasscode.trim() === 'IT@123') {
-      sessionStorage.setItem('admin_passcode', 'IT@123');
+    if (enteredPasscode.trim() === DEFAULT_ADMIN_PASSCODE) {
+      sessionStorage.setItem('admin_passcode', DEFAULT_ADMIN_PASSCODE);
       sessionStorage.setItem('admin_authenticated', 'true');
       setIsUnlocked(true);
       setPasscodeError('');

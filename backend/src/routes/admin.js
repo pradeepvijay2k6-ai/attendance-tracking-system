@@ -5,7 +5,7 @@ const { cleanResetData } = require('../db/clean_reset');
 
 const router = express.Router();
 
-const ADMIN_PASSCODE = 'IT@123';
+const ADMIN_PASSCODE = process.env.ADMIN_PASSCODE || 'IT@123';
 
 // Passcode verification endpoint
 router.post('/verify-passcode', (req, res) => {
@@ -16,7 +16,7 @@ router.post('/verify-passcode', (req, res) => {
   return res.status(401).json({ success: false, message: 'Incorrect Admin Password. Access Denied.' });
 });
 
-// Middleware to guard all admin endpoints: requires either header x-admin-passcode === 'IT@123' or auth token with role === 'admin'
+// Middleware to guard all admin endpoints: requires either header x-admin-passcode === ADMIN_PASSCODE or auth token with role === 'admin'
 router.use((req, res, next) => {
   const passcodeHeader = req.headers['x-admin-passcode'];
   if (passcodeHeader === ADMIN_PASSCODE) {

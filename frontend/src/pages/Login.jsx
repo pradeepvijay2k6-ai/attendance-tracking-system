@@ -3,10 +3,10 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import DownloadAppModal, { detectUserOS, isRunningAsApp } from '../components/DownloadAppModal';
 
-const ALLOWED_ADMIN_EMAILS = [
-  'pradeepvijay2k6@gmail.com',
-  'clutchforever999@gmail.com'
-];
+const DEFAULT_ADMIN_PASSCODE = import.meta.env.VITE_ADMIN_PASSCODE || 'IT@123';
+const ALLOWED_ADMIN_EMAILS = (import.meta.env.VITE_ALLOWED_ADMIN_EMAILS || 'pradeepvijay2k6@gmail.com,clutchforever999@gmail.com')
+  .split(',')
+  .map((e) => e.trim().toLowerCase());
 
 export default function Login() {
   const { loginWithGoogle, user, role, loading: authLoading } = useAuth();
@@ -27,7 +27,7 @@ export default function Login() {
       const userEmail = (user.email || '').toLowerCase().trim();
       const isAllowedAdmin = ALLOWED_ADMIN_EMAILS.includes(userEmail) || role === 'admin';
 
-      if ((isAdminLogin || targetPortal === 'admin') && storedPasskey === 'IT@123' && isAllowedAdmin) {
+      if ((isAdminLogin || targetPortal === 'admin') && storedPasskey === DEFAULT_ADMIN_PASSCODE && isAllowedAdmin) {
         navigate('/admin', { replace: true });
       } else if (!isAdminLogin) {
         if (role === 'student') navigate('/student', { replace: true });
@@ -77,7 +77,7 @@ export default function Login() {
       return;
     }
 
-    if (adminPasskey.trim() !== 'IT@123') {
+    if (adminPasskey.trim() !== DEFAULT_ADMIN_PASSCODE) {
       const nextAttempts = failedAttempts + 1;
       setFailedAttempts(nextAttempts);
       if (nextAttempts >= 5) {
@@ -93,7 +93,7 @@ export default function Login() {
       setLoading(true);
       setError('');
       setFailedAttempts(0);
-      sessionStorage.setItem('admin_passcode', 'IT@123');
+      sessionStorage.setItem('admin_passcode', DEFAULT_ADMIN_PASSCODE);
       sessionStorage.setItem('target_portal', 'admin');
       sessionStorage.setItem('admin_authenticated', 'true');
       await loginWithGoogle();
